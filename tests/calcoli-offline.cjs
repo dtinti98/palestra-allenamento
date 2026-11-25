@@ -16,7 +16,7 @@ const URL = 'http://localhost:8765/';
       while (await p.$('#doneSet')) {
         await p.fill('.set.cur [data-f=reps]', '9');
         await p.click('#doneSet'); await p.waitForTimeout(40);
-        if (await p.$('#timer:not([hidden]) [data-t=x]')) await p.click('#timer [data-t=x]');
+        await p.evaluate(() => {});
       }
       const t = await p.$eval('#next', (e) => e.textContent).catch(() => null);
       if (!t) break;

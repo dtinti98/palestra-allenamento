@@ -56,7 +56,7 @@ const ok = (m) => console.log('  ✓', m);
         }
         while (await p.$('#doneSet')) {
           await p.click('#doneSet'); await p.waitForTimeout(60);
-          if (await p.$('#timer:not([hidden]) [data-t=x]')) await p.click('#timer [data-t=x]');
+          await p.evaluate(() => {});
         }
         const vals = await p.$$eval('.set input[data-f=load]', (x) => x.map((i) => i.value));
         if (vals.some((v) => v === '' || v === 'NaN')) bad(`${name}: carico vuoto/NaN dopo le serie ${vals}`);
@@ -79,15 +79,17 @@ const ok = (m) => console.log('  ✓', m);
     done === 4 ? ok('home: 4 giornate fatte') : bad('home: giornate fatte ' + done);
     // sessione con salto, indietro, lista, deseleziona serie, ricarica
     await go('#/giorno/A'); await p.click('#start'); await p.waitForTimeout(200);
-    await p.click('#doneSet'); await p.click('#timer [data-t=x]');
+    await p.click('#doneSet');
     await p.click('.set[data-i="0"] [data-act=done]'); // annulla
     const curAfterUndo = await p.$eval('#doneSet', (e) => e.textContent);
     /Serie 1/.test(curAfterUndo) ? ok('annullare una serie funziona') : bad('annullare serie: ' + curAfterUndo);
+    await p.click('#doneSet'); await p.waitForTimeout(80);
+    (await p.$eval('#skip', (e) => e.textContent)) === 'Prossimo esercizio' ? ok('link «Prossimo esercizio»') : bad('link: ' + await p.$eval('#skip', (e) => e.textContent));
+    const nm0 = await p.$eval('.ex-head h2', (e) => e.textContent);
     await p.click('#skip'); await p.waitForTimeout(150);
-    const nm = await p.$eval('.ex-head h2', (e) => e.textContent); ok('dopo salta: ' + nm);
+    const nm = await p.$eval('.ex-head h2', (e) => e.textContent); nm !== nm0 ? ok('prossimo esercizio: ' + nm) : bad('prossimo esercizio non cambia');
     await p.click('#prev'); await p.waitForTimeout(150);
-    const skipTxt = await p.$eval('#skip', (e) => e.textContent);
-    /Riprendi/.test(skipTxt) ? ok('esercizio saltato riprendibile') : bad('salta/riprendi: ' + skipTxt);
+    (await p.$$eval('.set.done', (x) => x.length)) === 1 && !(await p.$('.set.done ~ .set.done')) ? ok('serie lasciate come erano') : bad('le serie sono cambiate passando al prossimo');
     await p.click('#list'); await p.waitForTimeout(150);
     const li = await p.$$eval('[data-i]', (x) => x.length); li === 6 ? ok('lista esercizi') : bad('lista esercizi ' + li);
     await p.click('[data-i="3"]'); await p.waitForTimeout(150);
@@ -98,7 +100,11 @@ const ok = (m) => console.log('  ✓', m);
     await p.fill('.set.cur [data-f=load]', ''); await p.click('#doneSet');
     const toast = await p.$eval('#toast', (e) => e.textContent); /carico/.test(toast) ? ok('carico vuoto bloccato') : bad('carico vuoto non segnalato');
     await p.fill('.set.cur [data-f=load]', '12,5'); await p.fill('.set.cur [data-f=reps]', '9'); await p.click('#doneSet');
-    await p.click('#timer [data-t="+15"]'); await p.click('#timer [data-t="-15"]'); await p.click('#timer [data-t=x]');
+    (await p.$('#doneSet .ring')) && (await p.$('#restClock')) && !(await p.$('#timer')) ? ok('recupero sul pulsante della serie, niente popup') : bad('recupero: niente conto sul pulsante o popup ancora presente');
+    await p.click('#restAdj [data-t="+15"]'); await p.click('#restAdj [data-t="-15"]');
+    const off = await p.$eval('#doneSet .ring path', (e) => +e.style.strokeDashoffset); (off > 0 && off <= 100) ? ok('bordo del recupero si riempie') : bad('bordo del recupero: ' + off);
+    const before = await p.$eval('#doneSet', (e) => e.textContent); await p.click('#doneSet'); await p.waitForTimeout(80);
+    (await p.$$eval('.set.done', (x) => x.length)) >= 2 ? ok('durante il recupero si può segnare la serie dopo (' + before.trim().split('Recupero')[0].trim() + ')') : bad('recupero blocca la serie successiva');
     const v = await p.$eval('.set[data-i="0"] [data-f=load]', (e) => e.value); v === '12.5' || v === '12,5' ? ok('virgola decimale accettata') : bad('virgola: ' + v);
     await go(''); const resume = await p.$('.resume'); resume ? ok('home: banner Riprendi') : bad('manca banner Riprendi');
     // nuova sessione mentre una è aperta (dialog accettato)
@@ -125,6 +131,28 @@ const ok = (m) => console.log('  ✓', m);
     await go('#/storico/peso'); await p.click('[data-w="+"]'); await p.click('#wsave'); await p.waitForTimeout(200);
     const mine = await p.$$eval('[data-delw]', (x) => x.length); mine === 1 ? ok('pesata salvata') : bad('pesata non salvata');
     await p.fill('#wkg', 'abc'); await p.click('#wsave'); (await p.$eval('#toast', (e) => e.textContent)).includes('non valido') ? ok('pesata non valida bloccata') : bad('pesata non valida accettata');
+    // superserie
+    await p.evaluate(() => { const st = JSON.parse(localStorage.getItem('palestra.v1')); st.current = null; localStorage.setItem('palestra.v1', JSON.stringify(st)); });
+    await p.reload(); await go('#/giorno/D');
+    const ssOn = await p.$$eval('.ss-link.on', (x) => x.length); ssOn === 1 ? ok('superserie del diario proposta (Curl + French press)') : bad('superserie proposte: ' + ssOn);
+    await p.click('.ss-link:not(.on)'); await p.waitForTimeout(100);
+    (await p.$$eval('.ss-link.on', (x) => x.length)) === 2 ? ok('scelta superserie nella giornata') : bad('scelta superserie');
+    await p.click('.ss-link.on'); await p.waitForTimeout(100);
+    await p.click('#start'); await p.waitForTimeout(200);
+    await p.click('#list'); await p.waitForTimeout(150);
+    const nEx = await p.$$eval('[data-i]', (x) => x.length); await p.click(`[data-i="${nEx - 2}"]`); await p.waitForTimeout(200);
+    (await p.$('.ss-banner:not(.off)')) ? ok('banner superserie in sessione') : bad('manca banner superserie');
+    const n1 = await p.$eval('.ex-head h2', (e) => e.textContent);
+    await p.click('#doneSet'); await p.waitForTimeout(150);
+    const n2 = await p.$eval('.ex-head h2', (e) => e.textContent); const cur2 = await p.$eval('.set.cur', (e) => e.dataset.i);
+    (n2 !== n1 && cur2 === '0' && !(await p.$('#restClock'))) ? ok(`superserie: dopo ${n1} serie 1 → ${n2} serie 1, senza recupero`) : bad(`superserie alternanza: ${n1} → ${n2}, serie ${cur2}`);
+    await p.click('#doneSet'); await p.waitForTimeout(150);
+    const n3 = await p.$eval('.ex-head h2', (e) => e.textContent); const cur3 = await p.$eval('.set.cur', (e) => e.dataset.i);
+    (n3 === n1 && cur3 === '1' && (await p.$('#restClock'))) ? ok('superserie: fine giro → recupero, poi serie 2 del primo') : bad(`superserie giro: ${n3}, serie ${cur3}`);
+    await p.click('#ssOff'); await p.waitForTimeout(100);
+    (await p.$('.ss-banner.off')) ? ok('superserie separabile in sessione') : bad('separa superserie');
+    await p.click('#ssOn'); await p.waitForTimeout(100);
+    await p.click('#finish'); await p.waitForTimeout(150); await p.click('#close').catch(() => {}); await p.waitForTimeout(150);
     // misure corporee
     await go('#/storico/peso'); await p.click('#misura summary');
     await p.click('#msave'); (await p.$eval('#toast', (e) => e.textContent)).includes('almeno') ? ok('misurazione vuota bloccata') : bad('misurazione vuota accettata');

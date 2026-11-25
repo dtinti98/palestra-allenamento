@@ -250,10 +250,15 @@ function renderDay(g) {
   if (!exs.length) { location.hash = '#/'; return; }
   setTop(`Giorno ${g} · ${dayName(sch, g)}`, `${exs.length} esercizi`, '#/');
   setTab('home');
+  const links = ssLinks(sch.id, g, exs);
   let h = `<div class="ex-list">`;
   exs.forEach((e, i) => {
     const lib = libFor(e);
-    h += `<a class="card ex-item" href="#/esercizio/${esc(e.illustrazione)}?from=${encodeURIComponent(e.id)}">
+    if (i > 0) {
+      const on = links.has(exs[i - 1].id);
+      h += `<button class="ss-link${on ? ' on' : ''}" data-ss="${i - 1}" aria-pressed="${on}">${on ? '⛓ In superserie · tocca per separare' : '+ Superserie con il precedente'}</button>`;
+    }
+    h += `<a class="card ex-item${links.has(e.id) || (i > 0 && links.has(exs[i - 1].id)) ? ' in-ss' : ''}" href="#/esercizio/${esc(e.illustrazione)}?from=${encodeURIComponent(e.id)}">
       <div class="thumb paper">${lib ? figureSVG(lib, 1, { ghost: true, label: lib.title }) : ''}</div>
       <div class="grow"><h3>${i + 1}. ${esc(e.nome)}</h3>
       <div class="sub">${e.serie} × ${e.range ? (e.range[0] === e.range[1] ? e.range[0] : e.range.join('–')) : e.reps} · rec. ${esc(e.recupero || fmtRest(restSeconds(null, e.range)))}</div>
@@ -265,6 +270,36 @@ function renderDay(g) {
   h += `<div class="sticky-cta"><button class="btn primary block" id="start">Inizia allenamento · giorno ${g}</button></div>`;
   $app.innerHTML = h;
   document.getElementById('start').onclick = () => startSession(sch, g, +document.getElementById('week').value);
+  $app.querySelectorAll('[data-ss]').forEach((b) => { b.onclick = () => { const k = +b.dataset.ss; setSsLink(sch.id, g, exs, exs[k].id, !links.has(exs[k].id)); route(); }; });
+}
+// Superserie: per ogni scheda e giornata, gli id degli esercizi legati al successivo.
+// Se Danilo non ha mai scelto, valgono gli esercizi che nel diario hanno «superset» nel nome.
+const ssKey = (schId, g) => `${schId}-${g}`;
+function ssLinks(schId, g, exs) {
+  const saved = S.settings.superserie && S.settings.superserie[ssKey(schId, g)];
+  if (saved) return new Set(saved);
+  const out = new Set();
+  exs.forEach((e, i) => { if (exs[i + 1] && /superset/i.test(e.nome) && /superset/i.test(exs[i + 1].nome)) out.add(e.id); });
+  return out;
+}
+function setSsLink(schId, g, exs, id, on) {
+  const L = ssLinks(schId, g, exs);
+  if (on) L.add(id); else L.delete(id);
+  S.settings.superserie = { ...(S.settings.superserie || {}), [ssKey(schId, g)]: [...L] };
+  save();
+}
+// indici della superserie che contiene l'esercizio idx (null se è da solo)
+function ssGroup(schId, g, exs, idx) {
+  const L = ssLinks(schId, g, exs);
+  let a = idx, b = idx;
+  while (a > 0 && L.has(exs[a - 1].id)) a--;
+  while (b < exs.length - 1 && L.has(exs[b].id)) b++;
+  return b > a ? Array.from({ length: b - a + 1 }, (_, k) => a + k) : null;
+}
+function ssRest(exs, grp) {
+  for (const k of grp) { const m = (exs[k].note || '').match(/(\d+)\s*″\s*tra i giri/); if (m) return +m[1]; }
+  const last = exs[grp[grp.length - 1]];
+  return restSeconds(last.recupero, last.range);
 }
 const fmtRest = (s) => (s >= 60 ? `${Math.floor(s / 60)}′${s % 60 ? (s % 60) + '″' : ''}` : `${s}″`);
 
@@ -327,11 +362,19 @@ function renderSession() {
   const hist = history(e, { exclude: sess.id });
   const lastH = hist[hist.length - 1];
   const range = e.range ? (e.range[0] === e.range[1] ? `${e.range[0]}` : e.range.join('–')) : `${e.reps}`;
-  const rest = restSeconds(e.recupero, e.range);
+  const grp = ssGroup(sch.id, sess.giorno, exs, sess.idx);
+  const rest = grp ? ssRest(exs, grp) : restSeconds(e.recupero, e.range);
   const prim = lib ? lib.primary : [], sec = lib ? lib.secondary : [];
 
-  let h = `<div class="progress">${exs.map((x, i) => `<i class="${i === sess.idx ? 'cur' : sess.esercizi[x.id]?.saltato ? 'skip' : isExDone(sess, x) ? 'done' : ''}"></i>`).join('')}</div>`;
-  h += `<div class="ex-head"><div><h2>${esc(e.nome)}</h2><div class="target"><b>${e.serie} serie × ${range} rip.</b> · recupero ${fmtRest(rest)}</div></div></div>`;
+  const linksP = ssLinks(sch.id, sess.giorno, exs);
+  let h = `<div class="progress">${exs.map((x, i) => `<i class="${i === sess.idx ? 'cur' : sess.esercizi[x.id]?.saltato ? 'skip' : isExDone(sess, x) ? 'done' : ''}${linksP.has(x.id) ? ' ss' : ''}"></i>`).join('')}</div>`;
+  h += `<div class="ex-head"><div><h2>${esc(e.nome)}</h2><div class="target"><b>${e.serie} serie × ${range} rip.</b> · recupero ${fmtRest(rest)}${grp ? ' dopo il giro' : ''}</div></div></div>`;
+  if (grp) {
+    const others = grp.filter((k) => k !== sess.idx).map((k) => exs[k].nome).join(' e ');
+    h += `<div class="ss-banner"><b>⛓ Superserie</b> con ${esc(others)}: una serie per esercizio, poi recupero. <button id="ssOff">Separa</button></div>`;
+  } else if (exs[sess.idx + 1]) {
+    h += `<div class="ss-banner off"><button id="ssOn">+ Fai in superserie con ${esc(exs[sess.idx + 1].nome)}</button></div>`;
+  }
   h += `<div class="split"><div class="figure-wrap session-fig"><div class="paper" id="fig">${lib ? figureSVG(lib, 1, { ghost: true, label: lib.title }) : ''}</div>${lib ? '<button class="play">❚❚ Pausa</button>' : ''}</div><div style="display:flex;flex-direction:column;gap:10px">`;
   h += `<div class="chips">${prim.map((m) => `<span class="chip"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}${sec.map((m) => `<span class="chip sec"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}</div>`;
   h += `<div class="card prev"><h3>Le volte scorse</h3>`;
@@ -365,10 +408,9 @@ function renderSession() {
   const allDone = curSet === -1;
   const last = sess.idx === exs.length - 1;
   h += `<div class="nav-row"><button class="btn ghost" id="prev" ${sess.idx === 0 ? 'disabled' : ''} aria-label="Esercizio precedente">←</button>`;
-  h += allDone
-    ? `<button class="btn primary" id="next">${last ? 'Fine allenamento' : 'Prossimo esercizio →'}</button>`
-    : `<button class="btn ok" id="doneSet">Serie ${curSet + 1} fatta ✓</button>`;
-  h += `</div><div class="links"><button id="skip">${rec.saltato ? 'Riprendi esercizio' : 'Salta esercizio'}</button><button id="list">Lista esercizi</button><button id="finish">Termina</button></div>`;
+  sessCtx = { sess, e, rec, curSet, rest, exs, allDone, last };
+  h += `<div id="mainSlot">${mainBtnHTML()}</div>`;
+  h += `</div><div class="rest-adj" id="restAdj" ${timer ? '' : 'hidden'}><button data-t="-15">−15″</button><button data-t="+15">+15″</button></div><div class="links"><button id="skip">${sess.idx === exs.length - 1 ? 'Vai al riepilogo' : 'Prossimo esercizio'}</button><button id="list">Lista esercizi</button><button id="finish">Termina</button></div>`;
   $app.innerHTML = h;
   if (lib) animate(document.getElementById('fig'), lib, lib.title);
 
@@ -402,16 +444,18 @@ function renderSession() {
     }
     if (act === 'done') toggleSet(sess, e, rec, i, rest, exs);
   });
-  const ds = document.getElementById('doneSet');
-  if (ds) ds.onclick = () => toggleSet(sess, e, rec, curSet, rest, exs);
-  const nx = document.getElementById('next');
-  if (nx) nx.onclick = () => { sess.idx += 1; save(); window.scrollTo(0, 0); route(); };
+  bindMainBtn();
+  document.getElementById('restAdj').onclick = (ev) => { const t = ev.target.dataset.t; if (t) adjustTimer(t === '+15' ? 15 : -15); };
   document.getElementById('prev').onclick = () => { sess.idx = Math.max(0, sess.idx - 1); save(); window.scrollTo(0, 0); route(); };
+  // passa al prossimo lasciando le serie come sono (in superserie: dopo tutto il gruppo)
   document.getElementById('skip').onclick = () => {
-    rec.saltato = !rec.saltato; save();
-    if (rec.saltato) { sess.idx += 1; save(); window.scrollTo(0, 0); }
-    route();
+    if (rec.saltato) rec.saltato = false;
+    sess.idx = (grp ? grp[grp.length - 1] : sess.idx) + 1; save(); window.scrollTo(0, 0); route();
   };
+  const ssOff = document.getElementById('ssOff');
+  if (ssOff) ssOff.onclick = () => { for (const k of grp.slice(0, -1)) setSsLink(sch.id, sess.giorno, exs, exs[k].id, false); route(); };
+  const ssOn = document.getElementById('ssOn');
+  if (ssOn) ssOn.onclick = () => { setSsLink(sch.id, sess.giorno, exs, e.id, true); route(); };
   document.getElementById('list').onclick = () => showList(sess, exs);
   document.getElementById('finish').onclick = () => { location.hash = '#/riepilogo'; };
   keepAwake();
@@ -433,6 +477,19 @@ function toggleSet(sess, e, rec, i, rest, exs) {
   // il carico si propaga alle serie successive non ancora fatte
   rec.serie.slice(i + 1).forEach((n) => { if (!n.fatto) { if (isBw) n.zavorra = s.zavorra; else n.carico = s.carico; } });
   save();
+  const sch = DATA.schede.find((k) => k.id === sess.scheda);
+  const grp = sch && ssGroup(sch.id, sess.giorno, exs, sess.idx);
+  if (grp) {
+    const recs = grp.map((k) => ensureRec(sess, exs[k]));
+    const rounds = Math.max(...recs.map((r) => r.serie.length));
+    let next = null;
+    for (let r = 0; r < rounds && !next; r++) for (let j = 0; j < grp.length && !next; j++) if (recs[j].serie[r] && !recs[j].serie[r].fatto) next = { k: grp[j], r };
+    const endOfDay = grp[grp.length - 1] === exs.length - 1;
+    if (next && next.r === i && next.k > sess.idx) { stopTimer(); sess.idx = next.k; }
+    else if (next) { startTimer(rest, `Serie ${next.r + 1} · ${exs[next.k].nome}`); sess.idx = next.k; }
+    else { if (!endOfDay) startTimer(rest, 'Prossimo esercizio'); sess.idx = grp[grp.length - 1]; }
+    save(); window.scrollTo(0, 0); route(); return;
+  }
   const lastSet = rec.serie.every((x) => x.fatto);
   const lastEx = sess.idx === exs.length - 1;
   if (!(lastSet && lastEx)) startTimer(rest, lastSet ? 'Prossimo esercizio' : `Serie ${i + 2}`);
@@ -458,40 +515,70 @@ function showList(sess, exs) {
 }
 
 // ---------------------------------------------------------------- timer di recupero
+// Il recupero si vede sul pulsante principale: il bordo si riempie mentre scorre il tempo.
 let timer = null;
+let sessCtx = null;
+const mmss = (l) => `${Math.floor(l / 60)}:${String(l % 60).padStart(2, '0')}`;
+const timerLeft = () => (timer ? Math.max(0, Math.ceil((timer.end - Date.now()) / 1000)) : 0);
+
+function mainBtnHTML(go = false) {
+  const c = sessCtx; if (!c) return '';
+  // il recupero non blocca: il pulsante resta usabile, il bordo si riempie col tempo
+  const ring = timer ? '<svg class="ring" aria-hidden="true"><path pathLength="100"/></svg>' : '';
+  const clock = timer ? `<small class="rest-clock">Recupero <b class="num" id="restClock">${mmss(timerLeft())}</b></small>` : '';
+  const cls = `${timer ? ' resting' : ''}${go ? ' go' : ''}`;
+  return c.allDone
+    ? `<button class="btn primary${cls}" id="next">${ring}<span class="rest-txt"><span>${c.last ? 'Fine allenamento' : 'Prossimo esercizio →'}</span>${clock}</span></button>`
+    : `<button class="btn ok${cls}" id="doneSet">${ring}<span class="rest-txt"><span>Serie ${c.curSet + 1} fatta ✓</span>${clock}</span></button>`;
+}
+function bindMainBtn() {
+  const c = sessCtx; if (!c) return;
+  const ds = document.getElementById('doneSet');
+  if (ds) ds.onclick = () => toggleSet(c.sess, c.e, c.rec, c.curSet, c.rest, c.exs);
+  const nx = document.getElementById('next');
+  if (nx) nx.onclick = () => { c.sess.idx += 1; save(); window.scrollTo(0, 0); route(); };
+  if (timer) { layoutRing(); drawTimer(); }
+  const adj = document.getElementById('restAdj'); if (adj) adj.hidden = !timer;
+}
+// bordo arrotondato che parte dal centro in alto e gira in senso orario
+function layoutRing() {
+  const btn = document.querySelector('#mainSlot .btn'); if (!btn || !btn.querySelector('.ring')) return;
+  const svg = btn.querySelector('.ring'), path = svg.querySelector('path');
+  const w = btn.offsetWidth, h = btn.offsetHeight, sw = 4, i = sw / 2;
+  const r = Math.min(parseFloat(getComputedStyle(btn).borderTopLeftRadius) || 14, h / 2) - i / 2;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  path.setAttribute('d', `M${w / 2},${i} H${w - r - i} A${r},${r} 0 0 1 ${w - i},${r + i} V${h - r - i} A${r},${r} 0 0 1 ${w - r - i},${h - i} H${r + i} A${r},${r} 0 0 1 ${i},${h - r - i} V${r + i} A${r},${r} 0 0 1 ${r + i},${i} Z`);
+}
+function drawTimer() {
+  if (!timer) return;
+  const l = timerLeft();
+  const btn = document.querySelector('#mainSlot .btn');
+  if (btn && btn.querySelector('.ring')) {
+    const done = Math.min(100, Math.max(0, (1 - (timer.end - Date.now()) / (timer.total * 1000)) * 100));
+    btn.querySelector('.ring path').style.strokeDashoffset = String(100 - done);
+    const ck = document.getElementById('restClock'); if (ck) ck.textContent = mmss(l);
+  }
+  if (l <= 0) endRest(true);
+}
+function endRest(natural) {
+  if (!timer) return;
+  clearInterval(timer.iv); timer = null;
+  const slot = document.getElementById('mainSlot');
+  if (slot) { slot.innerHTML = mainBtnHTML(natural); bindMainBtn(); }
+}
 function startTimer(sec, nextLabel) {
-  stopTimer();
-  const el = document.getElementById('timer');
-  const end = Date.now() + sec * 1000;
-  timer = { end, total: sec, nextLabel, iv: null, over: false };
-  el.hidden = false;
-  el.classList.remove('over');
-  const draw = () => {
-    const left = Math.round((timer.end - Date.now()) / 1000);
-    if (left <= 0 && !timer.over) {
-      timer.over = true; el.classList.add('over');
-      setTimeout(() => { if (timer && timer.over) stopTimer(); }, 6000);
-    }
-    const l = Math.max(0, left);
-    el.innerHTML = `<div class="grow"><div class="lbl">${timer.over ? 'Recupero finito' : 'Recupero'} · poi ${esc(timer.nextLabel)}</div><div class="clock">${timer.over ? 'Vai!' : `${Math.floor(l / 60)}:${String(l % 60).padStart(2, '0')}`}</div></div>
-      <button data-t="-15">−15″</button><button data-t="+15">+15″</button><button data-t="x">${timer.over ? 'OK' : 'Salta'}</button>
-      <div class="bar" style="width:${Math.min(100, (1 - l / timer.total) * 100)}%"></div>`;
-  };
-  draw();
-  timer.iv = setInterval(draw, 250);
-  el.onclick = (ev) => {
-    const t = ev.target.dataset.t; if (!t) return;
-    if (t === 'x') return stopTimer();
-    timer.end += (t === '+15' ? 15 : -15) * 1000; timer.total = Math.max(timer.total, Math.round((timer.end - Date.now()) / 1000));
-    if (timer.over && timer.end > Date.now()) { timer.over = false; el.classList.remove('over'); }
-    draw();
-  };
-}
-function stopTimer() {
   if (timer) clearInterval(timer.iv);
-  timer = null;
-  document.getElementById('timer').hidden = true;
+  timer = { end: Date.now() + sec * 1000, total: sec, nextLabel, iv: null };
+  timer.iv = setInterval(drawTimer, 200);
 }
+function adjustTimer(d) {
+  if (!timer) return;
+  timer.end += d * 1000;
+  timer.total = Math.max(timer.total, Math.ceil((timer.end - Date.now()) / 1000));
+  drawTimer();
+}
+function stopTimer() { if (timer) { clearInterval(timer.iv); timer = null; } }
+window.addEventListener('resize', layoutRing);
 let wake = null;
 async function keepAwake() {
   try { if ('wakeLock' in navigator && !wake) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } } catch (e) { /* non supportato */ }
