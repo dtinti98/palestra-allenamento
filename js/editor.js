@@ -44,7 +44,7 @@ const rangeTxt = (e) => (e.range ? (e.range[0] === e.range[1] ? `${e.range[0]}` 
 function toDraft(sch, S, dayName, ssLinks) {
   const giorni = [...new Set([...(sch.giorni || []), ...sch.esercizi.map((e) => e.giorno)])];
   return {
-    id: sch.id, titolo: sch.nome.split(' - ')[0], inizio: sch.inizio, settimane: sch.settimane.length || 8,
+    id: sch.id, titolo: sch.nome.split(' - ')[0], inizio: sch.inizio, settimane: sch.fine ? Math.max(1, Math.round((Date.parse(sch.fine) - Date.parse(sch.inizio)) / 6048e5)) : sch.settimane.length || 8,
     giorni: giorni.map((g) => {
       const exs = sch.esercizi.filter((e) => e.giorno === g);
       const links = ssLinks(sch.id, g, exs);
@@ -61,27 +61,31 @@ function newDraft(today) {
 
 function parseReps(t) {
   const m = String(t).match(/(\d+)\s*[-–]\s*(\d+)/);
-  if (m) { const a = +m[1], b = +m[2]; return { range: [Math.min(a, b), Math.max(a, b)], reps: Math.max(a, b) }; }
+  if (m) { const a = Math.min(+m[1], +m[2]), b = Math.max(+m[1], +m[2]); return { range: [a, b], reps: Math.round((a + b) / 2) }; }
   const n = parseInt(t, 10);
-  return Number.isFinite(n) && n > 0 ? { range: null, reps: n } : null;
+  return Number.isFinite(n) && n > 0 ? { range: [n, n], reps: n } : null;
 }
 
 function fromDraft(d, old, S) {
   const id = d.id ?? Math.max(0, ...(S.diario?.schede || []).map((s) => +s.id || 0)) + 1;
   const start = mondayOf(d.inizio);
-  const settimane = Array.from({ length: d.settimane }, (_, i) => addDays(start, i * 7));
+  // le colonne del diario possono andare oltre la fine della scheda: si tengono se l'inizio non cambia
+  const nCol = old && old.inizio === start ? Math.max(d.settimane, (old.settimane || []).length) : d.settimane;
+  const settimane = Array.from({ length: nCol }, (_, i) => addDays(start, i * 7));
   const oldEx = new Map((old?.esercizi || []).map((e) => [e.id, e]));
   const esercizi = [];
   let n = 0;
   for (const day of d.giorni) {
     for (const x of day.esercizi) {
-      const pr = parseReps(x.reps) || { range: null, reps: 10 };
+      const pr = parseReps(x.reps) || { range: [10, 10], reps: 10 };
       const cat = catItem(S, x.key);
       const prev = oldEx.get(x.id);
       esercizi.push({
         ...(prev || { storico: [], riferimento: null, note: '' }),
-        id: x.id || `u${Date.now().toString(36)}${n++}`, giorno: day.g, nome: clean(x.nome) || (cat ? cat.title : 'Esercizio'),
-        illustrazione: x.key, serie: Math.max(1, Math.min(10, +x.serie || 3)), reps: pr.reps, range: pr.range,
+        id: x.id || `u${Date.now().toString(36)}${n++}`, giorno: day.g, nome: String(x.nome || '').replace(/\s+/g, ' ').trim() || (cat ? cat.title : 'Esercizio'),
+        illustrazione: x.key, serie: Math.max(1, Math.min(10, +x.serie || 3)),
+        // ripetizioni di riferimento del diario: si tengono se il range non cambia
+        reps: prev && prev.range && pr.range.join() === prev.range.join() ? prev.reps : pr.reps, range: pr.range,
         recupero: x.recupero || null, tipoCarico: x.tipoCarico || 'machine',
         gruppo: prev?.gruppo ?? (cat ? GRUPPO[cat.primary[0]] || null : null),
         note: prev ? (prev.note || '').replace(/Rec\.[^.]*\.\s*/, x.recupero ? `Rec. ${x.recupero}. ` : '') : '',
@@ -92,9 +96,9 @@ function fromDraft(d, old, S) {
   return {
     ...(old || {}),
     id, nome: `${titolo} - ${d.giorni.map((x) => clean(x.nome) || `Giorno ${x.g}`).join(' / ')}`,
-    inizio: start, fine: addDays(settimane[settimane.length - 1], 6),
+    inizio: start, fine: old && old.inizio === start && old.fine && Math.round((Date.parse(old.fine) - Date.parse(start)) / 6048e5) === d.settimane ? old.fine : addDays(start, d.settimane * 7 - 1),
     giorni: d.giorni.map((x) => x.g), settimane,
-    seduteSvolte: Array.from({ length: d.settimane }, (_, i) => (old?.seduteSvolte || [])[i] || []),
+    seduteSvolte: Array.from({ length: nCol }, (_, i) => (old?.seduteSvolte || [])[i] || []),
     esercizi,
   };
 }
@@ -198,10 +202,12 @@ export function renderSchedaEdit(id, ctx) {
     if (!d.giorni.some((x) => x.esercizi.length)) { toast('Aggiungi almeno un esercizio'); return; }
     const bad = d.giorni.flatMap((x) => x.esercizi).find((x) => !parseReps(x.reps));
     if (bad) { toast(`Ripetizioni non valide per ${bad.nome}: scrivi ad esempio 10 o 8-10`); return; }
+    if (draftOld && mondayOf(d.inizio) !== draftOld.inizio && (draftOld.esercizi.some((e) => e.storico.length) || (S.sessions || []).some((s) => s.scheda === draftOld.id))
+      && !confirm('Cambiando la data di inizio, le settimane già registrate si spostano con la nuova data. Continuare?')) return;
     const sch = fromDraft(d, draftOld, S);
     const schede = (S.diario?.schede || []).filter((s) => s.id !== sch.id);
     schede.push(sch); schede.sort((a, b) => (a.inizio < b.inizio ? -1 : a.inizio > b.inizio ? 1 : a.id - b.id));
-    S.diario = { ...(S.diario || { generato: null, pesate: [], misure: [], contesto: {}, piani: [] }), schede };
+    S.diario = { ...(S.diario || { generato: null, pesate: [], misure: [], contesto: {}, piani: [] }), schede, modificato: new Date().toISOString() };
     // superserie: legami salvati per giornata
     const ss = { ...(S.settings.superserie || {}) };
     for (const day of d.giorni) {
@@ -214,7 +220,10 @@ export function renderSchedaEdit(id, ctx) {
   const del = document.getElementById('sDel');
   if (del) del.onclick = () => {
     if (!confirm('Eliminare questa scheda? Gli allenamenti già registrati restano nello storico, ma senza scheda non si possono più aprire.')) return;
-    S.diario.schede = S.diario.schede.filter((s) => s.id !== draftOld.id); ctx.save(); draft = null; location.hash = '#/schede';
+    S.diario.schede = S.diario.schede.filter((s) => s.id !== draftOld.id); S.diario.modificato = new Date().toISOString();
+    const cur = S.current && (S.sessions || []).find((s) => s.id === S.current);
+    if (cur && cur.scheda === draftOld.id) { cur.chiusa = true; S.current = null; }
+    ctx.save(); draft = null; location.hash = '#/schede';
   };
 }
 

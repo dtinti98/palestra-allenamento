@@ -1236,7 +1236,9 @@ function bindImport() {
       const dia = d && d.diario && Array.isArray(d.diario.schede) ? d.diario : d && Array.isArray(d.schede) && Array.isArray(d.pesate) ? d : null;
       if (!dia && !Array.isArray(d.sessions) && !Array.isArray(d.pesate) && !Array.isArray(d.misure)) throw new Error('formato');
       if (dia && S.diario && S.diario.generato && dia.generato && dia.generato < S.diario.generato && !confirm('Il diario nel file è più vecchio di quello già caricato. Sostituirlo lo stesso?')) { ev.target.value = ''; return; }
+      if (dia && S.diario && S.diario.modificato && S.diario.modificato !== dia.modificato && !confirm('Hai creato o modificato delle schede nell\'app: il diario nel file le sostituisce. Continuare?')) { ev.target.value = ''; return; }
       if (dia) S.diario = { ...EMPTY_DIARIO, ...dia };
+      if (d.customEx && typeof d.customEx === 'object') for (const [k, v] of Object.entries(d.customEx)) if (v && v.title && Array.isArray(v.primary) && !(S.customEx || {})[k]) S.customEx = { ...(S.customEx || {}), [k]: v };
       const ids = new Set(S.sessions.map((x) => x.id));
       const add = (d.sessions || []).filter((x) => x && x.id && x.esercizi && !ids.has(x.id)).map((x) => ({ ...x, chiusa: true }));
       S.sessions.push(...add);
