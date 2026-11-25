@@ -2,6 +2,7 @@ import { figureSVG3 as figureSVG, pairSVG3 } from './figure3.js';
 import { LIB, MUSCLES } from './exercises.js';
 import { bodyMapSVG } from './bodymap.js';
 import { makeStats } from './stats.js';
+import { renderSchedeList, renderSchedaEdit } from './editor.js';
 import { lineChart, barChart, pairBars, initTips } from './charts.js';
 
 // ---------------------------------------------------------------- stato
@@ -70,6 +71,13 @@ function dayName(scheda, g) {
 }
 const exById = (id) => { for (const s of DATA.schede) for (const e of s.esercizi) if (e.id === id) return { ex: e, scheda: s }; return null; };
 const libFor = (ex) => LIB[ex.illustrazione] || null;
+const customFor = (ex) => (S.customEx || {})[ex.illustrazione] || null;
+const musclesFor = (ex) => libFor(ex) || customFor(ex) || { primary: [], secondary: [] };
+// miniatura: disegno del movimento, o mappa dei muscoli per gli esercizi creati sul telefono
+function thumbHTML(ex, label) {
+  const lib = libFor(ex); if (lib) return figureSVG(lib, 1, { ghost: true, label: label || lib.title });
+  const c = customFor(ex); return c ? bodyMapSVG(c.primary, c.secondary || []) : '';
+}
 
 function bodyweight(dateISO) {
   if (S.settings.bw) return S.settings.bw;
@@ -192,6 +200,10 @@ function renderWelcome() {
       <label class="btn primary block" style="cursor:pointer;justify-content:center">Importa un backup<input type="file" id="imp" accept="application/json,.json" hidden></label>
     </div>
     <div class="card settings" style="margin-top:12px">
+      <div style="font-size:15px"><b>Parti da zero?</b> Crea la tua scheda: giornate, esercizi dalla lista, serie, ripetizioni, recupero e superserie.</div>
+      <a class="btn primary block" href="#/scheda/nuova">Crea una scheda</a>
+    </div>
+    <div class="card settings" style="margin-top:12px">
       <div style="font-size:15px">Senza scheda puoi già sfogliare gli esercizi con i disegni e segnare pesate e misure.</div>
       <div style="display:grid;gap:8px"><a class="btn" href="#/esercizi">Vedi gli esercizi</a><a class="btn" href="#/storico/peso">Pesate e misure</a></div>
     </div>`;
@@ -224,7 +236,8 @@ function renderHome() {
     }
   }
   h += `<div class="card hero"><h1>${esc(sch.nome.split(' - ')[0])}</h1><div class="muted">${esc(sch.nome.split(' - ')[1] || '')}</div>
-    <div class="muted">Dal ${dShort(sch.inizio)} al ${dShort(sch.fine)} · ${sch.giorni.length} giorni a settimana</div></div>`;
+    <div class="muted">Dal ${dShort(sch.inizio)} al ${dShort(sch.fine)} · ${sch.giorni.length} giorni a settimana</div>
+    <a class="btn small" href="#/schede" style="margin-top:10px;justify-self:start">Gestisci le schede</a></div>`;
   h += `<div class="section-title">Scegli la giornata</div><div class="days">`;
   for (const g of sch.giorni) {
     const n = sch.esercizi.filter((e) => e.giorno === g);
@@ -259,7 +272,7 @@ function renderDay(g) {
       h += `<button class="ss-link${on ? ' on' : ''}" data-ss="${i - 1}" aria-pressed="${on}">${on ? '⛓ In superserie · tocca per separare' : '+ Superserie con il precedente'}</button>`;
     }
     h += `<a class="card ex-item${links.has(e.id) || (i > 0 && links.has(exs[i - 1].id)) ? ' in-ss' : ''}" href="#/esercizio/${esc(e.illustrazione)}?from=${encodeURIComponent(e.id)}">
-      <div class="thumb paper">${lib ? figureSVG(lib, 1, { ghost: true, label: lib.title }) : ''}</div>
+      <div class="thumb paper">${thumbHTML(e)}</div>
       <div class="grow"><h3>${i + 1}. ${esc(e.nome)}</h3>
       <div class="sub">${e.serie} × ${e.range ? (e.range[0] === e.range[1] ? e.range[0] : e.range.join('–')) : e.reps} · rec. ${esc(e.recupero || fmtRest(restSeconds(null, e.range)))}</div>
       <div class="last">${esc(lastLine(e))}</div></div></a>`;
@@ -364,7 +377,7 @@ function renderSession() {
   const range = e.range ? (e.range[0] === e.range[1] ? `${e.range[0]}` : e.range.join('–')) : `${e.reps}`;
   const grp = ssGroup(sch.id, sess.giorno, exs, sess.idx);
   const rest = grp ? ssRest(exs, grp) : restSeconds(e.recupero, e.range);
-  const prim = lib ? lib.primary : [], sec = lib ? lib.secondary : [];
+  const prim = musclesFor(e).primary, sec = musclesFor(e).secondary || [];
 
   const linksP = ssLinks(sch.id, sess.giorno, exs);
   let h = `<div class="progress">${exs.map((x, i) => `<i class="${i === sess.idx ? 'cur' : sess.esercizi[x.id]?.saltato ? 'skip' : isExDone(sess, x) ? 'done' : ''}${linksP.has(x.id) ? ' ss' : ''}"></i>`).join('')}</div>`;
@@ -375,7 +388,7 @@ function renderSession() {
   } else if (exs[sess.idx + 1]) {
     h += `<div class="ss-banner off"><button id="ssOn">+ Fai in superserie con ${esc(exs[sess.idx + 1].nome)}</button></div>`;
   }
-  h += `<div class="split"><div class="figure-wrap session-fig"><div class="paper" id="fig">${lib ? figureSVG(lib, 1, { ghost: true, label: lib.title }) : ''}</div>${lib ? '<button class="play">❚❚ Pausa</button>' : ''}</div><div style="display:flex;flex-direction:column;gap:10px">`;
+  h += `<div class="split"><div class="figure-wrap session-fig"><div class="paper" id="fig">${lib ? figureSVG(lib, 1, { ghost: true, label: lib.title }) : customFor(e) ? bodyMapSVG(prim, sec) : ''}</div>${lib ? '<button class="play">❚❚ Pausa</button>' : ''}</div><div style="display:flex;flex-direction:column;gap:10px">`;
   h += `<div class="chips">${prim.map((m) => `<span class="chip"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}${sec.map((m) => `<span class="chip sec"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}</div>`;
   h += `<div class="card prev"><h3>Le volte scorse</h3>`;
   if (hist.length) {
@@ -503,7 +516,7 @@ function showList(sess, exs) {
     const r = sess.esercizi[x.id];
     const st = r?.saltato ? 'saltato' : isExDone(sess, x) ? 'fatto' : r ? `${r.serie.filter((s) => s.fatto).length}/${x.serie} serie` : '';
     h += `<button class="card ex-item ${isExDone(sess, x) ? 'done' : ''}" data-i="${i}" style="text-align:left;border:1px solid var(--line);cursor:pointer;${i === sess.idx ? 'border-color:var(--accent)' : ''}">
-      <div class="thumb paper">${libFor(x) ? figureSVG(libFor(x), 1, { label: x.nome }) : ''}</div>
+      <div class="thumb paper">${thumbHTML(x, x.nome)}</div>
       <div class="grow"><h3>${i + 1}. ${esc(x.nome)}</h3><div class="sub">${esc(st)}</div></div></button>`;
   });
   h += `</div>`;
@@ -649,7 +662,7 @@ function renderSummary() {
 let libFilter = 'tutti', libQuery = '';
 function usedKeys() {
   const m = new Map();
-  for (const s of DATA.schede) for (const e of s.esercizi) if (e.illustrazione) {
+  for (const s of DATA.schede) for (const e of s.esercizi) if (e.illustrazione && (LIB[e.illustrazione] || (S.customEx || {})[e.illustrazione])) {
     if (!m.has(e.illustrazione)) m.set(e.illustrazione, []);
     m.get(e.illustrazione).push({ e, s });
   }
@@ -660,7 +673,9 @@ function renderLibrary() {
   setTab('esercizi');
   const used = usedKeys();
   const lastSch = (k) => (used.has(k) ? Math.max(...used.get(k).map((x) => x.s.id)) : 0);
-  const keys = Object.keys(LIB).sort((a, b) => lastSch(b) - lastSch(a) || LIB[a].title.localeCompare(LIB[b].title, 'it'));
+  const CUS = S.customEx || {};
+  const T = (k) => (LIB[k] || CUS[k]).title;
+  const keys = [...Object.keys(LIB), ...Object.keys(CUS)].sort((a, b) => lastSch(b) - lastSch(a) || T(a).localeCompare(T(b), 'it'));
   const groups = ['tutti', 'petto', 'dorso', 'deltoidi', 'bicipiti', 'tricipiti', 'glutei', 'femorali', 'quadricipiti', 'polpacci', 'addome', 'trapezi'];
   let h = `<input class="search" id="q" type="search" placeholder="Cerca un esercizio" value="${esc(libQuery)}">`;
   h += `<div class="filters">${groups.map((g) => `<button data-g="${g}" aria-pressed="${g === libFilter}">${g === 'tutti' ? 'Tutti' : esc(MUSCLES[g])}</button>`).join('')}</div><div class="grid" id="grid"></div>`;
@@ -668,16 +683,16 @@ function renderLibrary() {
   const draw = () => {
     const q = libQuery.trim().toLowerCase();
     const list = keys.filter((k) => {
-      const L = LIB[k];
-      const ms = [...L.primary, ...L.secondary];
+      const L = LIB[k] || CUS[k];
+      const ms = [...L.primary, ...(L.secondary || [])];
       const okG = libFilter === 'tutti' || ms.some((m) => m === libFilter || (libFilter === 'deltoidi' && m.startsWith('deltoidi')));
       const okQ = !q || L.title.toLowerCase().includes(q) || (used.get(k) || []).some((x) => x.e.nome.toLowerCase().includes(q));
       return okG && okQ;
     });
     document.getElementById('grid').innerHTML = list.map((k) => {
-      const L = LIB[k];
+      const L = LIB[k] || CUS[k];
       const sch = [...new Set((used.get(k) || []).map((x) => x.s.id))].map((i) => `Scheda ${i}`).join(', ');
-      return `<a class="card tile" href="#/esercizio/${k}"><div class="paper">${figureSVG(L, 1, { ghost: true, label: L.title })}</div><h3>${esc(L.title)}</h3><div class="sub">${esc(L.primary.map((m) => MUSCLES[m]).join(', '))}${sch ? ` · ${sch}` : ''}</div></a>`;
+      return `<a class="card tile" href="#/esercizio/${k}"><div class="paper">${LIB[k] ? figureSVG(L, 1, { ghost: true, label: L.title }) : bodyMapSVG(L.primary, L.secondary || [])}</div><h3>${esc(L.title)}</h3><div class="sub">${esc(L.primary.map((m) => MUSCLES[m]).join(', '))}${sch ? ` · ${sch}` : ''}</div></a>`;
     }).join('') || '<div class="empty">Nessun esercizio trovato</div>';
   };
   draw();
@@ -716,6 +731,15 @@ function chartSVG(points) {
 
 function renderExercise(key, from) {
   const L = LIB[key];
+  const C = !L && (S.customEx || {})[key];
+  if (C) {
+    const fromEx = from && exById(from);
+    setTop(C.title, 'Esercizio creato da te', fromEx ? `#/giorno/${fromEx.ex.giorno}` : '#/esercizi');
+    setTab(fromEx ? 'home' : 'esercizi');
+    $app.innerHTML = `<div class="bodymap"><div class="paper">${bodyMapSVG(C.primary, C.secondary || [])}</div></div>
+      <div class="chips" style="margin-top:12px">${C.primary.map((m) => `<span class="chip"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}${(C.secondary || []).map((m) => `<span class="chip sec"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}</div>`;
+    return;
+  }
   if (!L) { location.hash = '#/esercizi'; return; }
   const used = usedKeys().get(key) || [];
   const fromEx = from && exById(from);
@@ -1069,7 +1093,8 @@ function weekExport(mon, st) {
   });
   const sch = (sessions.length ? DATA.schede.find((k) => k.id === sessions[0].scheda) : schedaFor(mon)) || { id: null, settimane: [], esercizi: [], seduteSvolte: [], giorni: [] };
   const w = sch.settimane.indexOf(mon) + 1 || (sch.id != null ? weekFor(sch, mon) : null);
-  const firstRow = sch.esercizi.length ? Math.min(...sch.esercizi.map((e) => +e.id.split('-r')[1])) : null;
+  const rows = sch.esercizi.map((e) => +String(e.id).split('-r')[1]).filter(Number.isFinite);
+  const firstRow = rows.length ? Math.min(...rows) : null;
   const sedute = [...new Set([...(sch.seduteSvolte[w - 1] || []), ...sessions.filter((x) => x.chiusa).map((x) => x.giorno)])].sort();
   const righe = [];
   for (const x of sessions) {
@@ -1080,11 +1105,12 @@ function weekExport(mon, st) {
       if (!done.length) continue;
       const reps = done.map((y) => y.reps);
       const carichi = [...new Set(done.map((y) => y.carico))];
-      const row = +e.id.split('-r')[1];
+      const row = +String(e.id).split('-r')[1];
+      const ok = Number.isFinite(row) && w;
       const o = {
-        giorno: x.giorno, data: x.data, esercizio: e.nome, riga: row,
-        cella_carico: colLetter(5 + w - 1) + row, carico: Math.max(...carichi),
-        cella_reps: colLetter(23 + w - 1) + row, reps_media: Math.round((reps.reduce((a, b) => a + b, 0) / reps.length) * 100) / 100,
+        giorno: x.giorno, data: x.data, esercizio: e.nome, riga: ok ? row : null,
+        cella_carico: ok ? colLetter(5 + w - 1) + row : null, carico: Math.max(...carichi),
+        cella_reps: ok ? colLetter(23 + w - 1) + row : null, reps_media: Math.round((reps.reduce((a, b) => a + b, 0) / reps.length) * 100) / 100,
         reps, serie_fatte: done.length, serie_previste: e.serie,
       };
       if (carichi.length > 1) o.carichi_per_serie = done.map((y) => y.carico);
@@ -1239,6 +1265,7 @@ function applyTheme() {
 }
 
 // ---------------------------------------------------------------- router
+const edCtx = () => ({ DATA, S, $app, setTop, setTab, dShort, todayISO, schedaFor, dayName, ssLinks, toast, save: () => save(), rerender: () => route() });
 function route() {
   const [path, qs] = (location.hash.slice(1) || '/').split('?');
   const params = new URLSearchParams(qs || '');
@@ -1252,6 +1279,8 @@ function route() {
   if (parts[0] === 'esercizi') return renderLibrary();
   if (parts[0] === 'esercizio') return renderExercise(parts[1], params.get('from'));
   if (parts[0] === 'storico') return renderHistory(parts[1]);
+  if (parts[0] === 'schede') return renderSchedeList(edCtx());
+  if (parts[0] === 'scheda') return renderSchedaEdit(parts[1] || 'nuova', edCtx());
   return renderHome();
 }
 
