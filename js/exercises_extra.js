@@ -30,7 +30,7 @@ const pulldown = (title, torsoB, handA, handB, secondary, tips) => ({
   title, primary: ['dorso'], secondary,
   A: { ...SEAT, hip: [96, 140], torso: 186, neck: 182, handN: handA, handF: [handA[0] - 4, handA[1]], elbowN: 'back', elbowF: 'back' },
   B: { ...SEAT, hip: [96, 140], torso: torsoB, neck: torsoB - 6, handN: handB, handF: [handB[0] - 4, handB[1]], elbowN: 'down', elbowF: 'down' },
-  back: () => seat(72, 146, 48) + tower(176) + prop.line([118, 12], [186, 12], 4) + prop.rect(128, 116, 18, 9, COL.padLight, 4),
+  back: () => seat(72, 146, 48) + tower(176) + prop.line([118, 12], [186, 12], 4) + prop.rect(126, 121, 20, 8, COL.padLight, 4),
   front: (J) => prop.cable(J.handN, [118, 12]) + pulley([118, 12]) + prop.line([J.handN[0] - 14, J.handN[1] - 2], [J.handN[0] + 14, J.handN[1] - 2], 3.5, COL.metal),
   tips,
 });

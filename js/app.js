@@ -1,4 +1,4 @@
-import { figureSVG } from './figure.js';
+import { figureSVG3 as figureSVG, pairSVG3 } from './figure3.js';
 import { LIB, MUSCLES } from './exercises.js';
 import { bodyMapSVG } from './bodymap.js';
 import { makeStats } from './stats.js';
@@ -631,7 +631,7 @@ function renderExercise(key, from) {
   const back = fromEx ? `#/giorno/${fromEx.ex.giorno}` : '#/esercizi';
   setTop(L.title, used.map((x) => x.e.nome).filter((v, i, a) => a.indexOf(v) === i).join(' · '), back);
   setTab(fromEx ? 'home' : 'esercizi');
-  let h = `<div class="split"><div class="figure-wrap"><div class="paper" id="fig">${figureSVG(L, 1, { ghost: true, label: L.title })}</div><button class="play">❚❚ Pausa</button></div>`;
+  let h = `<div class="paper pair" style="margin-bottom:12px">${pairSVG3(L)}</div>` + `<div class="split"><div class="figure-wrap"><div class="paper" id="fig">${figureSVG(L, 1, { ghost: true, label: L.title })}</div><button class="play">❚❚ Pausa</button></div>`;
   h += `<div class="bodymap"><div class="paper">${bodyMapSVG(L.primary, L.secondary)}</div><div class="legend"><span><i style="background:var(--accent)"></i>principale</span><span><i style="background:var(--accent-2)"></i>secondario</span></div></div></div>`;
   h += `<div class="chips" style="margin-top:12px">${L.primary.map((m) => `<span class="chip"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}${L.secondary.map((m) => `<span class="chip sec"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}</div>`;
   h += `<div class="section-title">Esecuzione</div><div class="card" style="padding:12px 14px"><ul class="tips">${L.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
