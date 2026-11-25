@@ -287,6 +287,8 @@ function startSession(sch, g, week) {
 }
 
 // ---------------------------------------------------------------- SESSIONE GUIDATA
+// numeri lunghi (102,5) più piccoli, così restano leggibili nello stepper
+const fitNum = (el) => { const n = String(el.value).length; el.classList.toggle('long', n >= 5); el.classList.toggle('xlong', n >= 6); };
 function isExDone(sess, e) {
   const r = sess.esercizi[e.id];
   return !!r && (r.saltato || (r.serie.filter((x) => x.fatto).length >= e.serie));
@@ -372,7 +374,9 @@ function renderSession() {
 
   // eventi
   const setsEl = $app.querySelector('.sets');
+  setsEl.querySelectorAll('.stepper input').forEach(fitNum);
   setsEl.addEventListener('input', (ev) => {
+    if (ev.target.matches('.stepper input')) fitNum(ev.target);
     const row = ev.target.closest('.set'); if (!row) return;
     const s = rec.serie[+row.dataset.i];
     if (ev.target.dataset.f === 'load') { const v = parseNum(ev.target.value); if (isBw) s.zavorra = v; else s.carico = v; }
@@ -387,7 +391,7 @@ function renderSession() {
       const k = isBw ? 'zavorra' : 'carico';
       const step = STEP[e.tipoCarico] || 1;
       s[k] = Math.max(0, Math.round(((s[k] ?? 0) + (act === 'load+' ? step : -step)) * 100) / 100);
-      row.querySelector('[data-f=load]').value = s[k];
+      row.querySelector('[data-f=load]').value = s[k]; fitNum(row.querySelector('[data-f=load]'));
       save(); return;
     }
     if (act === 'reps+' || act === 'reps-') {
