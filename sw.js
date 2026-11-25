@@ -1,6 +1,6 @@
 // Cache per usare l'app anche senza rete in palestra.
-const CACHE = 'palestra-v15';
-const SHELL = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/figure.js', 'js/figure3.js', 'js/exercises.js', 'js/exercises_extra.js', 'js/bodymap.js', 'js/stats.js', 'js/charts.js', 'js/editor.js',
+const CACHE = 'palestra-v16';
+const SHELL = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/figure.js', 'js/figure3.js', 'js/exercises.js', 'js/exercises_extra.js', 'js/bodymap.js', 'js/stats.js', 'js/charts.js', 'js/editor.js', 'js/scheda-import.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {

@@ -31,7 +31,7 @@ export function guessLoad(title) {
 // catalogo per la scelta: movimenti disegnati + esercizi creati sul telefono
 export function catalog(S) {
   const out = Object.entries(LIB).map(([k, L]) => ({ key: k, title: L.title, primary: L.primary, secondary: L.secondary, custom: false }));
-  for (const [k, c] of Object.entries(S.customEx || {})) out.push({ key: k, title: c.title, primary: c.primary, secondary: c.secondary || [], custom: true });
+  for (const [k, c] of Object.entries(S.customEx || {})) if (!LIB[k]) out.push({ key: k, title: c.title, primary: c.primary, secondary: c.secondary || [], custom: true });
   return out.sort((a, b) => a.title.localeCompare(b.title, 'it'));
 }
 const catItem = (S, key) => catalog(S).find((c) => c.key === key);
@@ -136,9 +136,9 @@ function bindSchedaImport(ctx) {
     let res;
     try {
       const { parseSchedaJSON } = await import('./scheda-import.js');
-      res = parseSchedaJSON(await f.text(), { LIB, customEx: S.customEx || {} });
+      res = parseSchedaJSON(await f.text(), { lib: LIB, muscles: MUSCLES, customEx: S.customEx || {}, guessLoad });
     } catch (e) { toast('File non leggibile come scheda'); return; }
-    if (!res || res.errori) {
+    if (!res || !res.ok) {
       const err = (res && res.errori) || ['formato sconosciuto'];
       const box = document.getElementById('schImpErr') || Object.assign(document.createElement('div'), { id: 'schImpErr', className: 'card imp-err' });
       box.innerHTML = `<b>Questa scheda non si può importare</b><ul>${err.slice(0, 8).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
