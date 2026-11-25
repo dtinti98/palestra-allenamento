@@ -26,19 +26,23 @@ const pulley = (p) => `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="${COL.metal
 const tower = (x, top = 14) => prop.rect(x, top, 22, 190 - top, COL.pad, 4);
 const handle = (J, s = 'N') => prop.line([J['hand' + s][0], J['hand' + s][1] - 6], [J['hand' + s][0], J['hand' + s][1] + 6], 4, COL.metal);
 
+// Lat machine vista di lato: partenza a braccia quasi verticali, arrivo con gomiti in basso e
+// dietro le spalle e sbarra all'altezza della parte alta del petto (cavo quasi verticale).
+const PULL_X = 102;
+const latBack = () => seat(72, 146, 48) + tower(176) + prop.line([PULL_X, 12], [186, 12], 4) + prop.rect(126, 121, 20, 8, COL.padLight, 4);
 const pulldown = (title, torsoB, handA, handB, secondary, tips) => ({
   title, primary: ['dorso'], secondary,
-  A: { ...SEAT, hip: [96, 140], torso: 186, neck: 182, handN: handA, handF: [handA[0] - 4, handA[1]], elbowN: 'back', elbowF: 'back' },
-  B: { ...SEAT, hip: [96, 140], torso: torsoB, neck: torsoB - 6, handN: handB, handF: [handB[0] - 4, handB[1]], elbowN: 'down', elbowF: 'down' },
-  back: () => seat(72, 146, 48) + tower(176) + prop.line([118, 12], [186, 12], 4) + prop.rect(126, 121, 20, 8, COL.padLight, 4),
-  front: (J) => prop.cable(J.handN, [118, 12]) + pulley([118, 12]) + prop.line([J.handN[0] - 14, J.handN[1] - 2], [J.handN[0] + 14, J.handN[1] - 2], 3.5, COL.metal),
+  A: { ...SEAT, hip: [96, 140], torso: 188, neck: 184, handN: handA, handF: [handA[0] - 3, handA[1] + 1], elbowN: 'back', elbowF: 'back' },
+  B: { ...SEAT, hip: [96, 140], torso: torsoB, neck: torsoB - 8, handN: handB, handF: [handB[0] - 3, handB[1] + 1], elbowN: 'back', elbowF: 'back' },
+  back: latBack,
+  front: (J) => prop.cable(J.handN, [PULL_X, 12]) + pulley([PULL_X, 12]) + prop.line([J.handN[0] - 8, J.handN[1] - 3], [J.handN[0] + 8, J.handN[1] - 3], 3.5, COL.metal),
   tips,
 });
 
 export const LIB_EXTRA = {
-  lat_pulldown_wide: pulldown('Lat machine presa larga', 196, [118, 34], [120, 76], ['bicipiti', 'deltoidi-post', 'trapezi'],
+  lat_pulldown_wide: pulldown('Lat machine presa larga', 198, [101, 38], [94, 95], ['bicipiti', 'deltoidi-post', 'trapezi'],
     ['Petto in fuori, leggera inclinazione indietro', 'Porta la sbarra verso la parte alta del petto', 'Risali controllato fino a braccia distese']),
-  lat_pulldown_close: pulldown('Lat machine presa stretta', 198, [118, 34], [122, 84], ['bicipiti', 'deltoidi-post'],
+  lat_pulldown_close: pulldown('Lat machine presa stretta', 196, [101, 38], [96, 98], ['bicipiti', 'deltoidi-post'],
     ['Presa stretta, palmi verso di te', 'Gomiti che scendono vicino al busto', 'Niente slancio con la schiena']),
   leg_press: {
     title: 'Leg press', primary: ['quadricipiti', 'glutei'], secondary: ['femorali', 'polpacci'],
@@ -245,14 +249,14 @@ export const LIB_EXTRA = {
     front: (J) => dbsLong(J),
     tips: ['Ginocchia morbide, anche indietro', 'Manubri che scorrono vicino alle gambe', 'Fermati quando la schiena non resta neutra'],
   },
-  lat_pulldown_neutral: pulldown('Lat machine presa neutra', 196, [118, 34], [121, 80], ['bicipiti', 'deltoidi-post'],
+  lat_pulldown_neutral: pulldown('Lat machine presa neutra', 196, [101, 38], [95, 97], ['bicipiti', 'deltoidi-post'],
     ['Palmi uno verso l\'altro', 'Abbassa le scapole prima di tirare', 'Gomiti verso i fianchi']),
   single_arm_pulldown: {
     title: 'Lat machine unilaterale al cavo', primary: ['dorso'], secondary: ['bicipiti'],
-    A: { ...SEAT, hip: [96, 140], torso: 186, neck: 182, handN: [118, 34], elbowN: 'back', uaF: 10, faF: 70 },
-    B: { ...SEAT, hip: [96, 140], torso: 192, neck: 186, handN: [112, 86], elbowN: 'down', uaF: 10, faF: 70 },
-    back: () => seat(72, 146, 48) + tower(176) + prop.line([118, 12], [186, 12], 4) + prop.rect(126, 121, 20, 8, COL.padLight, 4),
-    front: (J) => prop.cable(J.handN, [118, 12]) + pulley([118, 12]) + handle(J),
+    A: { ...SEAT, hip: [96, 140], torso: 188, neck: 184, handN: [101, 38], elbowN: 'back', uaF: 10, faF: 70 },
+    B: { ...SEAT, hip: [96, 140], torso: 194, neck: 188, handN: [94, 98], elbowN: 'back', uaF: 10, faF: 70 },
+    back: latBack,
+    front: (J) => prop.cable(J.handN, [PULL_X, 12]) + pulley([PULL_X, 12]) + handle(J),
     tips: ['Allunga bene in alto senza ruotare il busto', 'Porta il gomito verso il fianco', 'Un braccio alla volta, stesse ripetizioni per lato'],
   },
   cable_lateral_raise: {
