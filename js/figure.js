@@ -191,7 +191,8 @@ export function frontJoints(P) {
   J.neckBase = add(P.hip, up, L.torso);
   J.head = add(J.neckBase, up, L.neck + L.head);
   for (const [s, sign] of [['R', -1], ['L', 1]]) {
-    J['shoulder' + s] = [J.neckBase[0] + sign * SW, J.neckBase[1] + 3 - (P.shrug || 0)];
+    // spalle perpendicolari al busto: nei piegamenti laterali la linea delle spalle si inclina con lui
+    J['shoulder' + s] = [J.neckBase[0] + sign * SW * -up[1] - up[0] * (3 - (P.shrug || 0)), J.neckBase[1] + sign * SW * up[0] - up[1] * (3 - (P.shrug || 0))];
     J['hipJ' + s] = [P.hip[0] + sign * HW, P.hip[1]];
     const m = (t) => sign * t; // angoli specchiati: positivo = verso l'esterno
     J['elbow' + s] = add(J['shoulder' + s], dir(m(P.ua)), L.ua * (P.uaScale ?? 1));

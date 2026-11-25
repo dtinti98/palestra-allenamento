@@ -327,9 +327,9 @@ export const LIB_EXTRA = {
   },
   db_step_up: {
     title: 'Step-up con manubri', primary: ['quadricipiti', 'glutei'], secondary: ['femorali', 'polpacci'],
-    A: { hip: [104, 118], torso: 178, neck: 178, footN: [142, 148], footF: [100, 187], kneeN: 'front', kneeF: 'front', ftN: 90, ftF: 90, uaN: 2, faN: 0, uaF: 0, faF: 0 },
-    B: { hip: [138, 76], torso: 178, neck: 178, footN: [142, 148], footF: [132, 140], kneeN: 'front', kneeF: 'front', ftN: 90, ftF: 70, uaN: 2, faN: 0, uaF: 0, faF: 0 },
-    back: () => prop.rect(120, 150, 58, 40, '#b9ad9c', 3),
+    A: { hip: [104, 122], torso: 178, neck: 178, footN: [142, 158], footF: [100, 187], kneeN: 'front', kneeF: 'front', ftN: 90, ftF: 90, uaN: 2, faN: 0, uaF: 0, faF: 0 },
+    B: { hip: [138, 86], torso: 178, neck: 178, footN: [142, 158], footF: [132, 150], kneeN: 'front', kneeF: 'front', ftN: 90, ftF: 70, uaN: 2, faN: 0, uaF: 0, faF: 0 },
+    back: () => prop.rect(120, 160, 58, 30, '#b9ad9c', 3),
     front: (J) => dbsLong(J, 16),
     tips: ['Tutto il piede sul gradino', 'Sali spingendo con la gamba davanti, non con quella dietro', 'Scendi lento, stesse ripetizioni per lato'],
   },
@@ -372,7 +372,7 @@ export const LIB_EXTRA = {
   crunch: {
     title: 'Crunch a terra', primary: ['addome'], secondary: [],
     A: { hip: [120, 180], torso: -90, neck: -90, footN: [156, 187], footF: [150, 187], kneeN: 'up', kneeF: 'up', ftN: 90, ftF: 90, uaN: 90, faN: 90, uaF: 92, faF: 92 },
-    B: { hip: [120, 180], torso: -62, neck: -48, footN: [156, 187], footF: [150, 187], kneeN: 'up', kneeF: 'up', ftN: 90, ftF: 90, uaN: 76, faN: 76, uaF: 78, faF: 78 },
+    B: { hip: [120, 180], torso: -110, neck: -120, footN: [156, 187], footF: [150, 187], kneeN: 'up', kneeF: 'up', ftN: 90, ftF: 90, uaN: 100, faN: 100, uaF: 102, faF: 102 },
     back: () => prop.rect(30, 187, 160, 3, COL.padLight, 1),
     tips: ['Piedi a terra, zona lombare appoggiata', 'Stacca solo le spalle arrotolando il busto', 'Espira salendo, scendi lento'],
   },

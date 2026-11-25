@@ -204,13 +204,17 @@ export function drawFront3(P, ex) {
   }
   // busto
   g += `<path d="M${P_([a[0] - 2, a[1] - 2])} Q${P_([nb[0], nb[1] - 4])} ${P_([b[0] + 2, b[1] - 2])} C${P_([b[0] + 3, b[1] + 22])} ${P_([hl[0] + 6, hl[1] - 16])} ${P_([hl[0] + 4, hl[1] + 3])} L${P_([hr[0] - 4, hr[1] + 3])} C${P_([hr[0] - 6, hr[1] - 16])} ${P_([a[0] - 3, a[1] + 22])} ${P_([a[0] - 2, a[1] - 2])}Z" fill="${C3.skin}" stroke="${C3.line}" stroke-width="1.3" stroke-linejoin="round"/>`;
-  // trapezi, pettorali, addome a quadretti, obliqui
+  // trapezi, pettorali, addome a quadretti, obliqui: disegnati sul busto dritto e poi ruotati
+  // attorno al bacino, così restano dentro il busto quando si piega di lato
+  const m0 = [J.hip[0], J.hip[1] - L.torso], tilt = Math.atan2(J.hip[0] - nb[0], J.hip[1] - nb[1]) * -180 / Math.PI;
+  g += `<g transform="rotate(${tilt.toFixed(2)} ${r1(J.hip[0])} ${r1(J.hip[1])})">`;
   for (const sg of [-1, 1]) {
-    g += `<path class="${cls('trapezi')}" d="M${P_([nb[0] + sg * 4, nb[1] - 7])} Q${P_([nb[0] + sg * 10, nb[1] - 1])} ${P_([nb[0] + sg * 17, nb[1] + 1])} L${P_([nb[0] + sg * 5, nb[1] + 2])}Z"/>`;
-    g += `<path class="${cls('petto')}" d="M${P_([nb[0] + sg * 1, nb[1] + 3])} L${P_([nb[0] + sg * 15, nb[1] + 4])} Q${P_([nb[0] + sg * 18, nb[1] + 12])} ${P_([nb[0] + sg * 14, nb[1] + 17])} Q${P_([nb[0] + sg * 7, nb[1] + 20])} ${P_([nb[0] + sg * 1, nb[1] + 18])}Z"/>`;
-    for (let k = 0; k < 3; k++) g += `<rect class="${cls('addome')}" x="${r1(nb[0] + (sg < 0 ? -6.6 : 0.6))}" y="${r1(nb[1] + 21 + k * 7.2)}" width="6" height="6.4" rx="2"/>`;
-    g += `<path class="${cls('addome')}" d="M${P_([nb[0] + sg * 7.5, nb[1] + 21])} Q${P_([nb[0] + sg * 13, nb[1] + 30])} ${P_([nb[0] + sg * 12, nb[1] + 44])} L${P_([nb[0] + sg * 7.5, nb[1] + 43])}Z"/>`;
+    g += `<path class="${cls('trapezi')}" d="M${P_([m0[0] + sg * 4, m0[1] - 7])} Q${P_([m0[0] + sg * 10, m0[1] - 1])} ${P_([m0[0] + sg * 17, m0[1] + 1])} L${P_([m0[0] + sg * 5, m0[1] + 2])}Z"/>`;
+    g += `<path class="${cls('petto')}" d="M${P_([m0[0] + sg * 1, m0[1] + 3])} L${P_([m0[0] + sg * 15, m0[1] + 4])} Q${P_([m0[0] + sg * 18, m0[1] + 12])} ${P_([m0[0] + sg * 14, m0[1] + 17])} Q${P_([m0[0] + sg * 7, m0[1] + 20])} ${P_([m0[0] + sg * 1, m0[1] + 18])}Z"/>`;
+    for (let k = 0; k < 3; k++) g += `<rect class="${cls('addome')}" x="${r1(m0[0] + (sg < 0 ? -6.6 : 0.6))}" y="${r1(m0[1] + 21 + k * 7.2)}" width="6" height="6.4" rx="2"/>`;
+    g += `<path class="${cls('addome')}" d="M${P_([m0[0] + sg * 7.5, m0[1] + 21])} Q${P_([m0[0] + sg * 13, m0[1] + 30])} ${P_([m0[0] + sg * 12, m0[1] + 44])} L${P_([m0[0] + sg * 7.5, m0[1] + 43])}Z"/>`;
   }
+  g += '</g>';
   g += `<path d="M${P_([hr[0] - 4, hr[1] - 6])} L${P_([hl[0] + 4, hl[1] - 6])} L${P_([hl[0] + 4, hl[1] + 5])} L${P_([hr[0] - 4, hr[1] + 5])}Z" fill="${C3.shorts}" stroke="#15181c" stroke-width="1"/>`;
   // collo e testa
   g += capsule([nb[0], nb[1] + 2], [nb[0], nb[1] - 8], 9, 8, C3.skin);
