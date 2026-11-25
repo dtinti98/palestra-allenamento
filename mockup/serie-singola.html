@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bozza · serie singola</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    body { padding-bottom: 0; }
+    .ss { max-width: 520px; margin: 0 auto; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; min-height: calc(100vh - 66px); }
+    .ss-ex { display: flex; align-items: center; gap: 12px; }
+    .ss-ex .thumb { width: 64px; flex: none; }
+    .ss-ex h2 { font-size: 17px; }
+    .ss-ex .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .ss-dots { display: flex; gap: 8px; align-items: center; }
+    .ss-dots span { flex: 1; height: 6px; border-radius: 4px; background: var(--line); }
+    .ss-dots span.done { background: var(--ok); }
+    .ss-dots span.cur { background: var(--accent); }
+    .ss-set { text-align: center; }
+    .ss-set .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+    .ss-set .v { font-size: 22px; font-weight: 800; }
+    .ss-last { display: flex; justify-content: center; gap: 8px; font-size: 14px; color: var(--muted); }
+    .ss-last b { color: var(--text); }
+    .ss-ctl { padding: 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .ss-ctl .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+    .ss-row { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; width: 100%; gap: 8px; }
+    .ss-row button { height: 56px; border-radius: 16px; border: 0; background: var(--surface-2); font-size: 28px; font-weight: 500; color: var(--text); cursor: pointer; }
+    .ss-row button.plus { background: color-mix(in srgb, var(--accent) 18%, var(--surface-2)); color: var(--accent); }
+    .ss-num { text-align: center; line-height: 1; }
+    .ss-num b { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+    .ss-num small { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .ss-delta { font-size: 12px; color: var(--muted); }
+    .ss-delta.up { color: var(--ok); font-weight: 600; }
+    .ss-go { min-height: 56px; font-size: 17px; border-radius: 16px; }
+    .ss-done { display: flex; flex-direction: column; gap: 6px; }
+    .ss-done div { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); font-size: 14px; }
+    .ss-done div span:first-child { color: var(--muted); }
+    .ss-done .ok { color: var(--ok); font-weight: 700; }
+    .ss-nav { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; }
+    .ss-nav .btn { min-height: 48px; font-size: 14px; flex-direction: column; gap: 0; line-height: 1.2; padding: 6px 10px; }
+    .ss-nav .btn small { font-weight: 500; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .ss-rest { font-size: 13px; text-align: center; color: var(--muted); }
+  </style>
+</head>
+<body class="in-session">
+  <header class="top">
+    <button class="back" aria-label="Indietro"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <div class="top-title"><span>Giorno A · esercizio 1 di 6</span><small>Settimana 4 · Braccia</small></div>
+  </header>
+  <main class="ss">
+    <div class="ss-ex">
+      <div class="thumb paper" id="thumb"></div>
+      <div class="grow"><h2>Curl bilanciere EZ</h2><div class="sub">3 serie × 6–10 rip. · recupero 2′</div></div>
+    </div>
+
+    <div class="ss-set"><div class="k">Serie</div><div class="v">2 di 3</div></div>
+    <div class="ss-dots" aria-label="Serie 2 di 3"><span class="done"></span><span class="cur"></span><span></span></div>
+    <div class="ss-last">Ultima volta (16/11): <b>28 kg × 10/9/9</b></div>
+
+    <div class="card ss-ctl">
+      <div class="lbl">Peso</div>
+      <div class="ss-row"><button aria-label="Meno 2,5 kg">−</button><div class="ss-num"><b>28</b><small>kg · passo 2,5</small></div><button class="plus" aria-label="Più 2,5 kg">+</button></div>
+      <div class="ss-delta">uguale all'ultima volta</div>
+    </div>
+    <div class="card ss-ctl">
+      <div class="lbl">Ripetizioni</div>
+      <div class="ss-row"><button aria-label="Meno una ripetizione">−</button><div class="ss-num"><b>10</b><small>obiettivo 6–10</small></div><button class="plus" aria-label="Più una ripetizione">+</button></div>
+      <div class="ss-delta up">+1 rispetto alla serie 2 dell'ultima volta</div>
+    </div>
+
+    <button class="btn ok block ss-go">Serie 2 fatta ✓</button>
+    <div class="ss-rest">Poi parte il recupero di 2′</div>
+
+    <div class="ss-done">
+      <div><span>Serie 1</span><span><b>28 kg × 10</b> <span class="ok">✓</span></span></div>
+    </div>
+    <div class="ss-nav">
+      <button class="btn ghost" disabled>← Precedente<small>nessuno</small></button>
+      <button class="btn ghost">Prossimo esercizio →<small>Panca presa stretta · 3 × 6–8</small></button>
+    </div>
+  </main>
+  <script type="module">
+    import { figureSVG } from '../js/figure.js';
+    import { LIB } from '../js/exercises.js';
+    document.getElementById('thumb').innerHTML = figureSVG(LIB.ez_curl, 1, { ghost: true });
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+__pycache__/
+.DS_Store
+
+# dati personali: mai nel repository
+*backup*.json
+data/
