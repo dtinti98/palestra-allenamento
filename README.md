@@ -19,6 +19,7 @@ Gli allenamenti registrati restano nel browser del telefono (localStorage). Usa 
 | `js/figure.js` | motore dei disegni (omino a tratto di matita, pose con angoli articolari, muscoli colorati) |
 | `js/exercises.js` | catalogo dei movimenti: posa iniziale/finale, attrezzi, muscoli principali/secondari, consigli |
 | `js/bodymap.js` | mappa del corpo fronte/retro |
+| `js/scheda-import.js` | lettura delle schede da importare (formato in [`docs/formato-scheda.md`](docs/formato-scheda.md)) |
 | `tools/export_data.py` | crea dal file Excel un backup da importare nell'app |
 
 ## I dati restano sul telefono
@@ -56,5 +57,6 @@ con lo script (`PALESTRA_BACKUP=/percorso/palestra_backup.json`):
 ```bash
 node tests/e2e.cjs            # tutte le sezioni, a 390 px (scuro) e 320 px (chiaro)
 node tests/calcoli-offline.cjs # calcoli dopo una settimana registrata nell'app e uso offline
+node tests/scheda-import.cjs # formato delle schede da importare (non serve il server)
 node tests/casi-limite.cjs     # export con sole misure, import, promemoria, 320 px scuro
 ```
