@@ -53,7 +53,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
     await p.fill('.set.cur [data-f=load]', '20'); await p.click('#doneSet'); await p.waitForTimeout(150);
     const nm = await p.$eval('.ex-head h2', (e) => e.textContent); nm === 'Pressa 45 gradi' ? ok('alterna sull\'esercizio creato') : ko('alternanza: ' + nm);
     await overflow('sessione esercizio creato');
-    await go('#/esercizi'); (await p.$$('.tile')).length === 79 ? ok('libreria: 78 + 1 creato') : ko('libreria ' + (await p.$$('.tile')).length);
+    await go('#/esercizi'); (await p.$$('.tile')).length === 103 ? ok('libreria: 102 + 1 creato') : ko('libreria ' + (await p.$$('.tile')).length);
 
     // ---- modifica di una scheda passata con storico
     await p.evaluate((s) => localStorage.setItem('palestra.v1', JSON.stringify(s)), stato()); await p.reload(); await p.waitForTimeout(300);
