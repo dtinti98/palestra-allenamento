@@ -340,3 +340,8 @@ textarea.export { width: 100%; min-height: 160px; border-radius: 12px; border: 1
 .chips.pick button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 #sTit { flex: 1; min-width: 0; max-width: 62%; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 0 10px; font-size: 15px; }
 #sSet { width: 80px !important; }
+
+.imp-err, .imp-ok { padding: 12px 14px; margin-bottom: 12px; font-size: 14px; }
+.imp-err { border-color: var(--accent); }
+.imp-ok { border-color: var(--accent-2); }
+.imp-err ul, .imp-ok ul { margin: 6px 0 0; padding-left: 18px; }

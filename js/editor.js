@@ -88,7 +88,9 @@ function fromDraft(d, old, S) {
         reps: prev && prev.range && pr.range.join() === prev.range.join() ? prev.reps : pr.reps, range: pr.range,
         recupero: x.recupero || null, tipoCarico: x.tipoCarico || 'machine',
         gruppo: prev?.gruppo ?? (cat ? GRUPPO[cat.primary[0]] || null : null),
-        note: prev ? (prev.note || '').replace(/Rec\.[^.]*\.\s*/, x.recupero ? `Rec. ${x.recupero}. ` : '') : '',
+        note: prev ? (prev.note || '').replace(/Rec\.[^.]*\.\s*/, x.recupero ? `Rec. ${x.recupero}. ` : '') : String(x.note || '').trim(),
+        // carico proposto alla prima seduta (schede importate), finché non c'è storico
+        caricoIniziale: typeof x.kg === 'number' && x.kg >= 0 ? x.kg : prev?.caricoIniziale ?? null,
       });
     }
   }
@@ -111,7 +113,8 @@ export function renderSchedeList(ctx) {
   setTop('Le tue schede', 'Crea una scheda nuova o modifica quelle esistenti', '#/');
   setTab('home');
   const cur = DATA.schede.length ? schedaFor(todayISO()) : null;
-  let h = `<a class="btn primary block" href="#/scheda/nuova" style="margin-bottom:14px">+ Nuova scheda</a>`;
+  let h = `<div style="display:grid;gap:8px;margin-bottom:14px"><a class="btn primary block" href="#/scheda/nuova">+ Nuova scheda</a>
+    <label class="btn block" style="cursor:pointer;justify-content:center">Importa scheda (file JSON)<input type="file" id="schImp" accept="application/json,.json,text/plain" hidden></label></div>`;
   if (!DATA.schede.length) h += `<div class="card empty">Nessuna scheda ancora. Creane una: scegli le giornate, gli esercizi dalla lista, serie, ripetizioni e recupero.</div>`;
   for (const s of DATA.schede.slice().reverse()) {
     const n = s.esercizi.length;
@@ -120,6 +123,34 @@ export function renderSchedeList(ctx) {
       <div class="muted small">Dal ${dShort(s.inizio)} al ${dShort(s.fine)} · ${s.giorni.length} giornate · ${n} esercizi</div></div><span class="badge ${stato === 'In corso' ? 'on' : ''}">${stato}</span></a>`;
   }
   $app.innerHTML = h;
+  bindSchedaImport(ctx);
+}
+
+// Importa una scheda da file JSON (formato «palestra-scheda», vedi docs/formato-scheda.md):
+// apre l'editor con la bozza precompilata, la scheda si salva solo con Salva.
+function bindSchedaImport(ctx) {
+  const { S, toast, todayISO } = ctx;
+  const inp = document.getElementById('schImp'); if (!inp) return;
+  inp.onchange = async (ev) => {
+    const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+    let res;
+    try {
+      const { parseSchedaJSON } = await import('./scheda-import.js');
+      res = parseSchedaJSON(await f.text(), { LIB, customEx: S.customEx || {} });
+    } catch (e) { toast('File non leggibile come scheda'); return; }
+    if (!res || res.errori) {
+      const err = (res && res.errori) || ['formato sconosciuto'];
+      const box = document.getElementById('schImpErr') || Object.assign(document.createElement('div'), { id: 'schImpErr', className: 'card imp-err' });
+      box.innerHTML = `<b>Questa scheda non si può importare</b><ul>${err.slice(0, 8).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
+      ctx.$app.prepend(box); window.scrollTo(0, 0); return;
+    }
+    const nuovi = res.nuoviEsercizi || {};
+    const add = Object.entries(nuovi).filter(([k, v]) => v && v.title && Array.isArray(v.primary) && !LIB[k] && !(S.customEx || {})[k]);
+    if (add.length) { S.customEx = { ...(S.customEx || {}), ...Object.fromEntries(add) }; ctx.save(); }
+    draft = { ...res.draft, inizio: res.draft.inizio || mondayOf(todayISO()), settimane: res.draft.settimane || 8, _for: 'nuova', _avvisi: res.avvisi || [], _importata: f.name };
+    draftOld = null; picker = null;
+    if (location.hash === '#/scheda/nuova') renderSchedaEdit('nuova', ctx); else location.hash = '#/scheda/nuova';
+  };
 }
 
 export function renderSchedaEdit(id, ctx) {
@@ -140,7 +171,11 @@ export function renderSchedaEdit(id, ctx) {
   if (picker) return renderPicker(ctx);
 
   const d = draft;
-  let h = `<div class="card settings">
+  let h = '';
+  if (d._importata) {
+    h += `<div class="card imp-ok"><b>Scheda importata da ${esc(d._importata)}</b><div class="small">Controlla giornate ed esercizi, poi premi «Salva la scheda».</div>${d._avvisi.length ? `<ul class="small">${d._avvisi.slice(0, 12).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>`;
+  }
+  h += `<div class="card settings">
     <label>Nome<input id="sTit" value="${esc(d.titolo)}" maxlength="60"></label>
     <label>Inizio (lunedì)<input type="date" id="sIni" value="${d.inizio}"></label>
     <label>Settimane<input type="number" id="sSet" min="1" max="26" inputmode="numeric" value="${d.settimane}"></label></div>`;

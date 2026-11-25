@@ -200,8 +200,8 @@ function renderWelcome() {
       <label class="btn primary block" style="cursor:pointer;justify-content:center">Importa un backup<input type="file" id="imp" accept="application/json,.json" hidden></label>
     </div>
     <div class="card settings" style="margin-top:12px">
-      <div style="font-size:15px"><b>Parti da zero?</b> Crea la tua scheda: giornate, esercizi dalla lista, serie, ripetizioni, recupero e superserie.</div>
-      <a class="btn primary block" href="#/scheda/nuova">Crea una scheda</a>
+      <div style="font-size:15px"><b>Parti da zero?</b> Crea la tua scheda (giornate, esercizi dalla lista, serie, ripetizioni, recupero e superserie) oppure importala da un file.</div>
+      <a class="btn primary block" href="#/schede">Crea o importa una scheda</a>
     </div>
     <div class="card settings" style="margin-top:12px">
       <div style="font-size:15px">Senza scheda puoi già sfogliare gli esercizi con i disegni e segnare pesate e misure.</div>
@@ -345,11 +345,11 @@ function ensureRec(sess, e) {
   if (!sess.esercizi[e.id]) {
     const h = history(e, { exclude: sess.id });
     const l = h[h.length - 1];
-    let c = l ? l.carico : null;
+    let c = l ? l.carico : e.caricoIniziale ?? null;
     let z = null;
     if (e.tipoCarico === 'bw') {
       const bwThen = l ? (l.pesoCorporeo ?? l.serie?.[0]?.pesoCorporeo ?? sess.pesoCorporeo) : sess.pesoCorporeo;
-      z = l ? Math.max(0, Math.round((l.carico - bwThen) * 4) / 4) : 0;
+      z = l ? Math.max(0, Math.round((l.carico - bwThen) * 4) / 4) : e.caricoIniziale ?? 0;
       c = null;
     }
     sess.esercizi[e.id] = { saltato: false, serie: Array.from({ length: e.serie }, () => ({ carico: c, zavorra: z, reps: null, fatto: false })) };

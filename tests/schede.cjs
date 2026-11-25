@@ -17,7 +17,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
 
     // ---- app vuota: nuova scheda
     await go(''); await p.evaluate(() => localStorage.clear()); await go(''); await p.reload(); await p.waitForTimeout(300);
-    await p.click('a[href="#/scheda/nuova"]'); await p.waitForTimeout(200);
+    await p.click('a[href="#/schede"]'); await p.waitForTimeout(200); await p.click('a[href="#/scheda/nuova"]'); await p.waitForTimeout(200);
     await overflow('editor vuoto');
     await p.fill('#sTit', 'Forza base'); await p.fill('[data-dname="0"]', 'Spinta');
     await p.click('#sSave'); (await p.$eval('#toast', (e) => e.textContent)).includes('almeno un esercizio') ? ok('scheda senza esercizi bloccata') : ko('scheda vuota salvata');
