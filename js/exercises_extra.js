@@ -229,6 +229,90 @@ export const LIB_EXTRA = {
     back: () => tower(196), front: (J) => prop.cable(J.handN, [194, 22]) + pulley([194, 22]) + handle(J),
     tips: ['Braccia quasi tese per tutto il movimento', 'Porta la sbarra alle cosce usando i dorsali', 'Busto fermo, leggermente inclinato'],
   },
+  // ---- dai programmi 8 settimane ----
+  bb_hip_thrust: {
+    title: 'Hip thrust con bilanciere', primary: ['glutei'], secondary: ['femorali', 'quadricipiti'],
+    A: { hip: [104, 174], torso: 234, neck: 246, footN: [152, 188], footF: [146, 188], kneeN: 'up', kneeF: 'up', handN: [110, 160], handF: [106, 160], elbowN: 'up', elbowF: 'up' },
+    B: { hip: [112, 150], torso: 258, neck: 272, footN: [152, 188], footF: [146, 188], kneeN: 'up', kneeF: 'up', handN: [118, 136], handF: [114, 136], elbowN: 'up', elbowF: 'up' },
+    back: () => prop.bench(18, 74, 140),
+    front: (J) => prop.plate([J.hip[0] + 2, J.hip[1] - 15], 15),
+    tips: ['Scapole appoggiate al bordo della panca', 'Pausa breve in chiusura, mento verso il petto', 'Niente iperestensione della schiena'],
+  },
+  db_rdl: {
+    title: 'Stacco rumeno con manubri', primary: ['femorali', 'glutei'], secondary: ['lombari'],
+    A: { hip: [112, 114], torso: 178, footN: [118, 187], footF: [112, 187], uaN: 2, faN: 0, uaF: 0, faF: 0 },
+    B: { hip: [94, 122], torso: 104, neck: 112, footN: [118, 187], footF: [112, 187], uaN: 0, faN: 0, uaF: -2, faF: -2 },
+    front: (J) => dbsLong(J),
+    tips: ['Ginocchia morbide, anche indietro', 'Manubri che scorrono vicino alle gambe', 'Fermati quando la schiena non resta neutra'],
+  },
+  lat_pulldown_neutral: pulldown('Lat machine presa neutra', 196, [118, 34], [121, 80], ['bicipiti', 'deltoidi-post'],
+    ['Palmi uno verso l\'altro', 'Abbassa le scapole prima di tirare', 'Gomiti verso i fianchi']),
+  single_arm_pulldown: {
+    title: 'Lat machine unilaterale al cavo', primary: ['dorso'], secondary: ['bicipiti'],
+    A: { ...SEAT, hip: [96, 140], torso: 186, neck: 182, handN: [118, 34], elbowN: 'back', uaF: 10, faF: 70 },
+    B: { ...SEAT, hip: [96, 140], torso: 192, neck: 186, handN: [112, 86], elbowN: 'down', uaF: 10, faF: 70 },
+    back: () => seat(72, 146, 48) + tower(176) + prop.line([118, 12], [186, 12], 4) + prop.rect(126, 121, 20, 8, COL.padLight, 4),
+    front: (J) => prop.cable(J.handN, [118, 12]) + pulley([118, 12]) + handle(J),
+    tips: ['Allunga bene in alto senza ruotare il busto', 'Porta il gomito verso il fianco', 'Un braccio alla volta, stesse ripetizioni per lato'],
+  },
+  cable_lateral_raise: {
+    title: 'Alzate laterali ai cavi', view: 'front', primary: ['deltoidi'], secondary: ['trapezi'],
+    A: { hip: [120, 114], torso: 180, ua: 14, fa: 10, th: 3, sh: -2 }, B: { hip: [120, 114], torso: 180, ua: 86, fa: 84, th: 3, sh: -2 },
+    back: () => prop.rect(40, 160, 18, 30, COL.pad, 3) + prop.rect(182, 160, 18, 30, COL.pad, 3),
+    front: (J) => prop.cable(J.handR, [192, 168]) + prop.cable(J.handL, [48, 168]) + pulley([192, 168]) + pulley([48, 168]) + handle(J, 'R') + handle(J, 'L'),
+    tips: ['Cavo dal basso, lato opposto al braccio', 'Guida con il gomito fino all\'altezza della spalla', 'Tensione continua, niente oscillazioni'],
+  },
+  chest_press: {
+    title: 'Chest press', primary: ['petto'], secondary: ['tricipiti', 'deltoidi-ant'],
+    A: { ...SEAT, hip: [92, 140], torso: 186, neck: 182, handN: [110, 96], handF: [106, 96], elbowN: 'back', elbowF: 'back' },
+    B: { ...SEAT, hip: [92, 140], torso: 186, neck: 182, handN: [142, 94], handF: [138, 94], elbowN: 'down', elbowF: 'down' },
+    back: () => seat(70, 146, 46) + prop.pad([72, 146], 186, 62, -8) + prop.line([160, 190], [160, 60], 4) + prop.line([160, 64], [124, 64], 3.5),
+    front: (J) => handle(J) + prop.line([J.handN[0], J.handN[1] - 6], [160, 70], 3, COL.frame),
+    tips: ['Schiena e scapole appoggiate', 'Maniglie all\'altezza del petto', 'Spingi senza bloccare i gomiti'],
+  },
+  cable_kickback: {
+    title: 'Kickback al cavo', primary: ['glutei'], secondary: ['femorali'],
+    A: { hip: [108, 114], torso: 166, neck: 170, thN: 6, shN: 0, ftN: 90, footF: [116, 187], ftF: 90, handN: [150, 92], handF: [146, 92], elbowN: 'down', elbowF: 'down' },
+    B: { hip: [108, 114], torso: 162, neck: 168, thN: -38, shN: -26, ftN: 60, footF: [116, 187], ftF: 90, handN: [150, 92], handF: [146, 92], elbowN: 'down', elbowF: 'down' },
+    back: () => tower(168, 40),
+    front: (J) => prop.cable(J.ankleN, [166, 182]) + pulley([166, 182]),
+    tips: ['Cavigliera al piede, busto leggermente inclinato', 'Spingi la gamba indietro con il gluteo', 'Bacino fermo, niente inarcamento'],
+  },
+  reverse_fly_machine: {
+    title: 'Reverse fly alla macchina', view: 'front', primary: ['deltoidi-post'], secondary: ['trapezi', 'dorso'],
+    A: { hip: [120, 132], torso: 180, ua: 40, uaScale: 0.45, fa: 40, faScale: 0.45, th: 10, thScale: 0.42, sh: 2 },
+    B: { hip: [120, 132], torso: 180, ua: 90, uaScale: 1, fa: 92, faScale: 1, th: 10, thScale: 0.42, sh: 2 },
+    back: () => prop.rect(88, 134, 64, 9) + prop.line([60, 190], [60, 40], 4) + prop.line([180, 190], [180, 40], 4),
+    front: (J) => handle(J, 'R') + handle(J, 'L'),
+    tips: ['Petto contro il cuscino, spalle basse', 'Apri le braccia all\'indietro con i gomiti morbidi', 'Pausa breve in apertura'],
+  },
+  incline_db_curl: {
+    title: 'Curl con manubri su panca inclinata', primary: ['bicipiti'], secondary: ['avambracci'],
+    A: { ...INCL, torso: 222, neck: 210, hip: [136, 150], uaN: 0, faN: 0, uaF: -3, faF: -3 },
+    B: { ...INCL, torso: 222, neck: 210, hip: [136, 150], uaN: 2, faN: 150, uaF: -1, faF: 146 },
+    back: (J) => {
+      const d = dirv(222), n = [-d[1], d[0]];
+      const p0 = add(add(J.hip, n, -11), d, -6);
+      return prop.pad(p0, 222, 74, -8) + prop.rect(112, 159, 48, 7) + prop.line([134, 166], [134, 190], 4) + prop.line(add(p0, d, 50), [96, 190], 4);
+    },
+    front: (J) => dbsEnd(J),
+    tips: ['Braccia che pendono dietro al busto', 'Palmi in avanti, gomiti fermi', 'Estensione completa in basso'],
+  },
+  cable_curl: {
+    title: 'Curl al cavo', primary: ['bicipiti'], secondary: ['avambracci'],
+    A: { ...STAND, uaN: 6, faN: 10, uaF: 2, faF: 6 }, B: { ...STAND, uaN: 10, faN: 150, uaF: 6, faF: 146 },
+    back: () => tower(172, 120),
+    front: (J) => prop.cable(J.handN, [170, 176]) + pulley([170, 176]) + prop.bar(J.handN),
+    tips: ['Gomiti fermi ai fianchi', 'Sali senza spostare il busto', 'Tensione costante anche in basso'],
+  },
+  cable_overhead_triceps: {
+    title: 'Estensioni tricipiti sopra la testa al cavo', primary: ['tricipiti'], secondary: [],
+    A: { hip: [116, 116], torso: 150, neck: 156, footN: [146, 187], footF: [96, 187], uaN: 168, faN: 330, uaF: 166, faF: 328 },
+    B: { hip: [116, 116], torso: 150, neck: 156, footN: [146, 187], footF: [96, 187], uaN: 166, faN: 160, uaF: 164, faF: 158 },
+    back: () => tower(8, 20),
+    front: (J) => prop.cable(J.handN, [32, 52]) + pulley([32, 52]) + prop.line([J.handN[0] - 3, J.handN[1] - 4], [J.handN[0] + 4, J.handN[1] + 5], 3.5, COL.metal),
+    tips: ['Di spalle al cavo, un piede avanti', 'Gomiti vicini alla testa e fermi', 'Allunga bene dietro la nuca, poi estendi'],
+  },
 };
 
 // nome nel catalogo (Free Exercise DB) → id movimento
@@ -242,4 +326,20 @@ export const FROM_CATALOG = {
   Dumbbell_Lunges: 'db_lunge', Goblet_Squat: 'goblet_squat', 'Stiff-Legged_Dumbbell_Deadlift': 'sl_db_deadlift',
   Seated_Calf_Raise: 'seated_calf', Cable_Crunch: 'cable_crunch', Plank: 'plank', Hack_Squat: 'hack_squat',
   Arnold_Dumbbell_Press: 'arnold_press', 'Straight-Arm_Pulldown': 'straight_arm_pulldown',
+};
+
+// nomi usati nei programmi a 8 settimane → id movimento
+export const PROGRAM_NAMES = {
+  'Panca piana bilanciere': 'bb_bench', 'Panca inclinata manubri': 'incline_db_bench', 'Leg press': 'leg_press', 'Leg press (quadricipiti)': 'leg_press',
+  'Leg extension': 'leg_extension', 'Alzate laterali ai cavi': 'cable_lateral_raise', 'Push-down corda': 'triceps_pushdown', 'Push-down cavo': 'triceps_pushdown',
+  'Trazioni prone (zavorra se possibile)': 'pullup', 'Rematore chest-supported': 'chest_supported_row', 'Rematore macchina petto supportato': 'chest_supported_row',
+  'Stacco rumeno': 'rdl', 'Stacco rumeno manubri': 'db_rdl', 'Leg curl seduto': 'seated_leg_curl', 'Leg curl sdraiato': 'leg_curl',
+  'Reverse fly macchina/cavi': 'reverse_fly_machine', 'Reverse fly macchina': 'reverse_fly_machine', 'Curl manubri panca inclinata': 'incline_db_curl',
+  'Squat high-bar': 'back_squat', 'Bulgarian split squat': 'bulgarian_split_squat', 'Bulgarian split squat (bias glutei)': 'bulgarian_split_squat',
+  'Shoulder press manubri': 'db_military', 'Shoulder press macchina/manubri': 'db_military', 'Croci ai cavi': 'cable_crossover',
+  'Calf raise in piedi': 'calf_raise', 'Calf raise': 'calf_raise', 'Lat machine presa neutra': 'lat_pulldown_neutral', 'Lat machine presa neutra/larga': 'lat_pulldown_neutral',
+  'Rematore cavo basso': 'cable_row', 'Pulley presa stretta': 'cable_row', 'Back extension 45° (erettori)': 'back_extension', 'Curl al cavo': 'cable_curl',
+  'Estensioni tricipiti sopra testa al cavo': 'cable_overhead_triceps', 'Hip thrust bilanciere': 'bb_hip_thrust', 'Abduzione macchina': 'abductor_machine',
+  'Alzate laterali manubri': 'lateral_raise', 'Lat machine unilaterale al cavo': 'single_arm_pulldown', 'Chest press': 'chest_press', 'Curl manubri': 'db_curl',
+  'Glute drive / hip thrust macchina': 'hip_thrust_machine', 'Kickback al cavo': 'cable_kickback', 'Crunch cavo': 'cable_crunch',
 };
