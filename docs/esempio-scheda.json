@@ -1,0 +1,44 @@
+{
+  "formato": "palestra-scheda",
+  "versione": 1,
+  "scheda": {
+    "titolo": "Ipertrofia 3 giorni",
+    "inizio": "2027-01-04",
+    "settimane": 8,
+    "note": "Settimana 8 di scarico: stesse serie, carichi al 70%.",
+    "giorni": [
+      {
+        "nome": "Spinta",
+        "esercizi": [
+          { "esercizio": "bb_bench", "serie": 4, "ripetizioni": "6-8", "recupero": 150, "kg": 70, "note": "Scapole addotte, piedi a terra." },
+          { "esercizio": "incline_db_bench", "serie": 3, "ripetizioni": "8-10", "recupero": 120, "kg": 24 },
+          { "esercizio": "lateral_raise", "serie": 3, "ripetizioni": "12-15", "recupero": 60, "kg": 8, "superserie": "S1" },
+          { "esercizio": "triceps_pushdown", "serie": 3, "ripetizioni": "10-12", "recupero": 60, "superserie": "S1" }
+        ]
+      },
+      {
+        "nome": "Tirata",
+        "esercizi": [
+          { "esercizio": "pullup", "serie": 4, "ripetizioni": "6-8", "recupero": 150, "tipoCarico": "bw", "kg": 0 },
+          { "esercizio": "chest_supported_row", "serie": 3, "ripetizioni": "8-10", "recupero": 120 },
+          { "esercizio": "face_pull", "serie": 3, "ripetizioni": "15", "recupero": 60 },
+          { "esercizio": "ez_curl", "nome": "Curl bilanciere EZ", "serie": 3, "ripetizioni": "8-10", "recupero": 90 }
+        ]
+      },
+      {
+        "nome": "Gambe",
+        "esercizi": [
+          { "esercizio": "back_squat", "serie": 4, "ripetizioni": "6-8", "recupero": 180 },
+          { "esercizio": "rdl", "serie": 3, "ripetizioni": "8-10", "recupero": 150 },
+          {
+            "esercizio": "pressa_orizzontale",
+            "nome": "Pressa orizzontale",
+            "muscoli": { "primari": ["quadricipiti"], "secondari": ["glutei"] },
+            "serie": 3, "ripetizioni": "10-12", "recupero": 90, "tipoCarico": "machine"
+          },
+          { "esercizio": "calf_raise", "serie": 4, "ripetizioni": "10-15", "recupero": 60 }
+        ]
+      }
+    ]
+  }
+}
