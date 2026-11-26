@@ -345,3 +345,12 @@ textarea.export { width: 100%; min-height: 160px; border-radius: 12px; border: 1
 .imp-err { border-color: var(--accent); }
 .imp-ok { border-color: var(--accent-2); }
 .imp-err ul, .imp-ok ul { margin: 6px 0 0; padding-left: 18px; }
+
+/* allenamento aperto e allenamento libero */
+.switch-banner { padding: 14px; margin-bottom: 14px; border-color: var(--accent); font-size: 15px; }
+.switch-banner .small { margin-top: 4px; color: var(--muted); }
+.free-card { display: flex; align-items: center; gap: 12px; padding: 14px; text-decoration: none; color: inherit; }
+#fq { width: 100%; min-width: 0; }
+.card.settings label:has(#fq) { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.links { flex-wrap: wrap; row-gap: 6px; }
+.switch-banner .btn.primary { color: #fff; }

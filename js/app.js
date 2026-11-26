@@ -2,7 +2,7 @@ import { figureSVG3 as figureSVG, pairSVG3 } from './figure3.js';
 import { LIB, MUSCLES } from './exercises.js';
 import { bodyMapSVG } from './bodymap.js';
 import { makeStats } from './stats.js';
-import { renderSchedeList, renderSchedaEdit } from './editor.js';
+import { renderSchedeList, renderSchedaEdit, catalog, guessLoad } from './editor.js';
 import { lineChart, barChart, pairBars, initTips } from './charts.js';
 
 // ---------------------------------------------------------------- stato
@@ -69,6 +69,13 @@ function dayName(scheda, g) {
   const i = scheda.giorni.indexOf(g);
   return parts.length === scheda.giorni.length ? parts[i] : `Giorno ${g}`;
 }
+// scheda di una sessione: quella vera, o una scheda virtuale con gli esercizi dell'allenamento libero
+function sessSch(sess) {
+  if (!sess) return null;
+  if (sess.libero) return { id: 'L' + sess.id, nome: `${sess.titolo || 'Allenamento libero'} - Libero`, giorni: ['L'], settimane: [], seduteSvolte: [], esercizi: sess.lista || [] };
+  return DATA.schede.find((s) => s.id === sess.scheda) || null;
+}
+const sessLabel = (sess) => (sess.libero ? 'allenamento libero' : `giorno ${sess.giorno}`);
 const exById = (id) => { for (const s of DATA.schede) for (const e of s.esercizi) if (e.id === id) return { ex: e, scheda: s }; return null; };
 const libFor = (ex) => LIB[ex.illustrazione] || null;
 const customFor = (ex) => (S.customEx || {})[ex.illustrazione] || null;
@@ -106,6 +113,7 @@ function sessionEntry(sess, ex) {
 
 // storico di un esercizio: diario + allenamenti registrati nell'app (l'app prevale sulla stessa settimana)
 function history(ex, { exclude } = {}) {
+  if (ex.libero) return historyMov(ex.illustrazione, exclude);
   const out = new Map();
   for (const h of ex.storico) out.set(h.settimana, { ...h, fonte: 'diario' });
   for (const s of S.sessions) {
@@ -114,6 +122,17 @@ function history(ex, { exclude } = {}) {
     if (e) out.set(e.settimana, e);
   }
   return [...out.values()].sort((a, b) => a.settimana - b.settimana);
+}
+
+// tutte le volte di un movimento: schede (diario + app) e allenamenti liberi, in ordine di data
+function historyMov(key, exclude) {
+  const out = [];
+  for (const sch of DATA.schede) for (const e of sch.esercizi) if (e.illustrazione === key) for (const h of history(e, { exclude })) out.push({ ...h, dove: `S${sch.id}` });
+  for (const s of S.sessions) {
+    if (!s.libero || s.id === exclude) continue;
+    for (const x of s.lista || []) if (x.illustrazione === key) { const e = sessionEntry(s, x); if (e) out.push({ ...e, settimana: null, dove: 'Libero' }); }
+  }
+  return out.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
 }
 
 function doneDays(scheda, week) {
@@ -214,7 +233,7 @@ function renderWelcome() {
     <div class="card settings" style="margin-top:12px">
       <div style="font-size:15px">Senza scheda puoi già sfogliare gli esercizi con i disegni e segnare pesate e misure.</div>
       <div style="display:grid;gap:8px"><a class="btn" href="#/esercizi">Vedi gli esercizi</a><a class="btn" href="#/storico/peso">Pesate e misure</a></div>
-    </div>`;
+    </div>${freeCardHTML()}`;
   bindImport();
 }
 
@@ -230,10 +249,10 @@ function renderHome() {
   const cur = S.current && S.sessions.find((s) => s.id === S.current);
   let h = '';
   if (cur) {
-    const curSch = DATA.schede.find((s) => s.id === cur.scheda);
+    const curSch = sessSch(cur);
     const exs = curSch.esercizi.filter((e) => e.giorno === cur.giorno);
     const nDone = exs.filter((e) => isExDone(cur, e)).length;
-    h += `<a class="card resume" href="#/sessione"><div class="grow"><b>Allenamento in corso · giorno ${esc(cur.giorno)}</b><div class="muted">${nDone} di ${exs.length} esercizi fatti · ${esc(dayName(curSch, cur.giorno))}</div></div><span class="btn primary small">Riprendi</span></a>`;
+    h += `<a class="card resume" href="#/sessione"><div class="grow"><b>Allenamento in corso · ${esc(sessLabel(cur))}</b><div class="muted">${nDone} di ${exs.length} esercizi fatti${cur.libero ? '' : ` · ${esc(dayName(curSch, cur.giorno))}`}</div></div><span class="btn primary small">Riprendi</span></a>`;
   }
   {
     const dow = new Date(today + 'T12:00:00Z').getUTCDay();
@@ -257,6 +276,7 @@ function renderHome() {
       <span class="meta">${n.length} esercizi · ${series} serie</span></a>`;
   }
   h += `</div>`;
+  h += freeCardHTML();
   if (DATA.generato) h += `<p class="muted" style="font-size:13px;margin-top:18px">Carichi del diario aggiornati al ${esc(DATA.generato.slice(0, 10).split('-').reverse().join('/'))}. Gli allenamenti che registri qui restano salvati su questo dispositivo.</p>`;
   $app.innerHTML = h;
 }
@@ -269,10 +289,14 @@ function renderDay(g) {
   const week = weekFor(sch, today);
   const exs = sch.esercizi.filter((e) => e.giorno === g);
   if (!exs.length) { location.hash = '#/'; return; }
+  const cur = S.current && S.sessions.find((s) => s.id === S.current);
+  // la giornata già iniziata si riapre e basta
+  if (cur && !cur.libero && cur.scheda === sch.id && cur.giorno === g) { location.hash = '#/sessione'; return; }
   setTop(`Giorno ${g} · ${dayName(sch, g)}`, `${exs.length} esercizi`, '#/');
   setTab('home');
   const links = ssLinks(sch.id, g, exs);
-  let h = `<div class="ex-list">`;
+  let h = cur ? switchBannerHTML(cur, `il giorno ${g}`) : '';
+  h += `<div class="ex-list">`;
   exs.forEach((e, i) => {
     const lib = libFor(e);
     if (i > 0) {
@@ -291,6 +315,7 @@ function renderDay(g) {
   h += `<div class="sticky-cta"><button class="btn primary block" id="start">Inizia allenamento · giorno ${g}</button></div>`;
   $app.innerHTML = h;
   document.getElementById('start').onclick = () => startSession(sch, g, +document.getElementById('week').value);
+  bindSwitchBanner(() => startSession(sch, g, +document.getElementById('week').value));
   $app.querySelectorAll('[data-ss]').forEach((b) => { b.onclick = () => { const k = +b.dataset.ss; setSsLink(sch.id, g, exs, exs[k].id, !links.has(exs[k].id)); route(); }; });
 }
 // Superserie: per ogni scheda e giornata, gli id degli esercizi legati al successivo.
@@ -326,12 +351,8 @@ const fmtRest = (s) => (s >= 60 ? `${Math.floor(s / 60)}′${s % 60 ? (s % 60) +
 
 function startSession(sch, g, week) {
   const cur = S.current && S.sessions.find((s) => s.id === S.current);
-  if (cur) {
-    const any = Object.values(cur.esercizi).some((r) => r.serie.some((x) => x.fatto));
-    if (cur.scheda === sch.id && cur.giorno === g && cur.settimana === week) { location.hash = '#/sessione'; return; }
-    if (any && !confirm(`Hai un allenamento aperto (giorno ${cur.giorno}). Lo chiudo e salvo quello che hai fatto?`)) return;
-    if (any) cur.chiusa = true; else S.sessions = S.sessions.filter((s) => s.id !== cur.id);
-  }
+  if (cur && !cur.libero && cur.scheda === sch.id && cur.giorno === g && cur.settimana === week) { location.hash = '#/sessione'; return; }
+  closeOrDiscard(cur);
   const sess = {
     id: 's' + Date.now().toString(36), scheda: sch.id, settimana: week, giorno: g, data: todayISO(), inizio: Date.now(),
     idx: 0, esercizi: {}, chiusa: false, pesoCorporeo: bodyweight(todayISO()),
@@ -340,6 +361,107 @@ function startSession(sch, g, week) {
   S.current = sess.id;
   save();
   location.hash = '#/sessione';
+}
+
+// ---------------------------------------------------------------- ALLENAMENTO APERTO
+// Chiude l'allenamento aperto: si salva se ha almeno una serie fatta, altrimenti si scarta.
+function closeOrDiscard(cur) {
+  if (!cur) return;
+  const any = Object.values(cur.esercizi).some((r) => !r.saltato && r.serie.some((x) => x.fatto));
+  if (any) { cur.chiusa = true; cur.fine = cur.fine || Date.now(); } else S.sessions = S.sessions.filter((s) => s.id !== cur.id);
+  S.current = null; stopTimer();
+}
+function switchBannerHTML(cur, nuovo) {
+  const any = Object.values(cur.esercizi).some((r) => !r.saltato && r.serie.some((x) => x.fatto));
+  return `<div class="card switch-banner" role="alert"><b>Hai un allenamento in corso (${esc(sessLabel(cur))}).</b>
+    <div class="small">Vuoi concluderlo e iniziare ${esc(nuovo)}? ${any ? 'Le serie già fatte vengono salvate.' : 'Non ha serie fatte, quindi viene scartato.'}</div>
+    <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn primary small" id="swGo">Concludi e inizia</button><a class="btn small" href="#/sessione">Torna all'allenamento</a></div></div>`;
+}
+function bindSwitchBanner(onGo) { const b = document.getElementById('swGo'); if (b) b.onclick = onGo; }
+
+// ---------------------------------------------------------------- ALLENAMENTO LIBERO
+// Fuori scheda: esercizi aggiunti man mano. Non conta come seduta della scheda,
+// ma entra nei carichi del movimento, nel tonnellaggio, nello storico e nell'export.
+function freeCardHTML() {
+  return `<div class="section-title">Fuori scheda</div><a class="card free-card" href="#/libero"><div class="grow"><b>Allenamento libero</b><div class="muted">Aggiungi gli esercizi man mano. Non conta nella scheda, ma salva carichi e tonnellaggio.</div></div><span class="btn small">Inizia</span></a>`;
+}
+function renderFreeStart() {
+  const cur = S.current && S.sessions.find((s) => s.id === S.current);
+  if (cur && cur.libero) { location.hash = '#/sessione'; return; }
+  const start = () => {
+    closeOrDiscard(S.current && S.sessions.find((s) => s.id === S.current));
+    const sess = { id: 's' + Date.now().toString(36), libero: true, scheda: null, settimana: null, giorno: 'L', titolo: 'Allenamento libero', data: todayISO(), inizio: Date.now(),
+      idx: 0, esercizi: {}, lista: [], chiusa: false, pesoCorporeo: bodyweight(todayISO()), aggiungi: true };
+    S.sessions.push(sess); S.current = sess.id; save(); location.hash = '#/sessione';
+  };
+  if (!cur) return start();
+  setTop('Allenamento libero', 'Fuori scheda', '#/'); setTab('home');
+  $app.innerHTML = switchBannerHTML(cur, 'un allenamento libero');
+  bindSwitchBanner(start);
+}
+let freeQuery = '';
+function renderFreePicker(sess) {
+  stopAnim();
+  const exs = sess.lista || [];
+  setTop('Aggiungi un esercizio', exs.length ? `Allenamento libero · ${exs.length} esercizi` : 'Allenamento libero · fuori scheda', exs.length ? null : '#/');
+  setTab('');
+  const q = freeQuery.trim().toLowerCase();
+  const items = catalog(S).filter((c) => !q || c.title.toLowerCase().includes(q) || c.primary.some((m) => (MUSCLES[m] || m).toLowerCase().includes(q)));
+  const recent = [...new Set(S.sessions.filter((s) => s.libero && s.id !== sess.id).flatMap((s) => (s.lista || []).map((x) => x.illustrazione)))].slice(-8).reverse();
+  let h = `<div class="card settings"><label>Cerca<input id="fq" type="search" value="${esc(freeQuery)}" placeholder="nome o muscolo, es. panca, glutei" autocomplete="off"></label></div>`;
+  if (!q && recent.length) h += `<div class="section-title">Usati di recente</div><div class="pick-list">${recent.map((k) => catalog(S).find((c) => c.key === k)).filter(Boolean).map(pickHTML).join('')}</div>`;
+  h += `<div class="section-title">${q ? `${items.length} risultati` : 'Tutti gli esercizi'}</div><div class="pick-list">${items.slice(0, q ? 60 : 200).map(pickHTML).join('')}</div>`;
+  if (!items.length) h += `<div class="muted">Nessun esercizio trovato. Puoi crearlo da Gestisci le schede.</div>`;
+  h += `<div class="sticky-cta" style="display:grid;gap:8px">${exs.length ? '<button class="btn block" id="fBack">Torna all\'allenamento</button>' : '<button class="btn ghost block" id="fCancel">Annulla</button>'}</div>`;
+  $app.innerHTML = h;
+  const inp = document.getElementById('fq');
+  inp.oninput = () => { freeQuery = inp.value; const pos = inp.selectionStart; renderFreePicker(sess); const n = document.getElementById('fq'); n.focus(); n.setSelectionRange(pos, pos); };
+  $app.querySelectorAll('[data-key]').forEach((b) => { b.onclick = () => addFreeEx(sess, b.dataset.key); });
+  const fb = document.getElementById('fBack'); if (fb) fb.onclick = () => { sess.aggiungi = false; save(); route(); };
+  const fc = document.getElementById('fCancel'); if (fc) fc.onclick = () => { closeOrDiscard(sess); save(); location.hash = '#/'; };
+}
+const pickHTML = (c) => `<button class="card pick-item" data-key="${esc(c.key)}"><b>${esc(c.title)}</b><span class="muted small">${esc(c.primary.map((m) => MUSCLES[m] || m).join(', '))}${c.custom ? ' · creato da te' : ''}</span></button>`;
+function addFreeEx(sess, key) {
+  const c = catalog(S).find((x) => x.key === key); if (!c) return;
+  const prev = historyMov(key, sess.id).slice(-1)[0];
+  const tipo = guessLoad(c.title);
+  const ex = { id: 'x' + Date.now().toString(36), giorno: 'L', nome: c.title, illustrazione: key, serie: prev && prev.serie ? Math.max(1, Math.min(10, prev.serie.length)) : 3,
+    reps: null, range: null, recupero: '90″', tipoCarico: tipo, storico: [], note: '', libero: true };
+  sess.lista = [...(sess.lista || []), ex];
+  sess.idx = sess.lista.length - 1; sess.aggiungi = false; freeQuery = '';
+  save(); window.scrollTo(0, 0); route();
+}
+function bindFreeSession(sess, e, rec) {
+  const add = document.getElementById('freeAdd'); if (add) add.onclick = () => { sess.aggiungi = true; save(); window.scrollTo(0, 0); route(); };
+  const sa = document.getElementById('setAdd');
+  if (sa) sa.onclick = () => { const l = rec.serie[rec.serie.length - 1] || {}; rec.serie.push({ carico: l.carico ?? null, zavorra: l.zavorra ?? null, reps: null, fatto: false }); e.serie = rec.serie.length; save(); route(); };
+  const sd = document.getElementById('setDel');
+  if (sd) sd.onclick = () => { rec.serie.pop(); e.serie = rec.serie.length; save(); route(); };
+  const xd = document.getElementById('exDel');
+  if (xd) xd.onclick = () => {
+    if (rec.serie.some((x) => x.fatto) && !confirm(`Togliere ${e.nome} con le serie già fatte?`)) return;
+    sess.lista = sess.lista.filter((x) => x.id !== e.id); delete sess.esercizi[e.id];
+    sess.idx = Math.max(0, Math.min(sess.idx, sess.lista.length - 1)); if (!sess.lista.length) sess.aggiungi = true;
+    save(); route();
+  };
+}
+function liberoExport(x) {
+  const esercizi = [];
+  for (const e of x.lista || []) {
+    const r = x.esercizi[e.id];
+    if (!r || r.saltato) continue;
+    const done = r.serie.filter((y) => y.fatto && y.carico != null);
+    if (!done.length) continue;
+    const reps = done.map((y) => y.reps);
+    const L = LIB[e.illustrazione] || (S.customEx || {})[e.illustrazione];
+    const o = { esercizio: e.nome, id_movimento: e.illustrazione, muscolo_primario: L && L.primary ? L.primary[0] || null : null, tipo_carico: e.tipoCarico,
+      serie: done.map((y) => ({ carico: y.carico, reps: y.reps })), carico_max: Math.max(...done.map((y) => y.carico)),
+      reps_medie: Math.round((reps.reduce((a, b) => a + b, 0) / reps.length) * 100) / 100,
+      tonnellaggio: Math.round(done.reduce((a, y) => a + y.carico * (y.reps || 0), 0)) };
+    if (e.tipoCarico === 'bw') { o.zavorra = done[0].zavorra ?? 0; o.peso_corporeo = done[0].pesoCorporeo ?? x.pesoCorporeo; }
+    esercizi.push(o);
+  }
+  return { data: x.data, titolo: x.titolo || 'Allenamento libero', esercizi, tonnellaggio_totale: esercizi.reduce((a, b) => a + b.tonnellaggio, 0) };
 }
 
 // ---------------------------------------------------------------- SESSIONE GUIDATA
@@ -368,28 +490,30 @@ function ensureRec(sess, e) {
 function renderSession() {
   const sess = S.current && S.sessions.find((s) => s.id === S.current);
   if (!sess) { location.hash = '#/'; return; }
-  const sch = DATA.schede.find((s) => s.id === sess.scheda);
+  const sch = sessSch(sess);
   if (!sch) { S.current = null; save(); location.hash = '#/'; return; }
   document.body.classList.add('in-session');
   const exs = sch.esercizi.filter((e) => e.giorno === sess.giorno);
+  if (sess.libero && (sess.aggiungi || !exs.length)) return renderFreePicker(sess);
   if (sess.idx >= exs.length) { location.hash = '#/riepilogo'; return; }
   const e = exs[sess.idx];
   const lib = libFor(e);
   const rec = ensureRec(sess, e);
   save();
-  setTop(`Giorno ${sess.giorno} · ${sess.idx + 1}/${exs.length}`, `Settimana ${sess.settimana} · ${dayName(sch, sess.giorno)}`, '#/');
+  if (sess.libero) setTop(`Libero · ${sess.idx + 1}/${exs.length}`, `${dLong(sess.data)} · fuori scheda`, '#/');
+  else setTop(`Giorno ${sess.giorno} · ${sess.idx + 1}/${exs.length}`, `Settimana ${sess.settimana} · ${dayName(sch, sess.giorno)}`, '#/');
   setTab('');
 
   const hist = history(e, { exclude: sess.id });
   const lastH = hist[hist.length - 1];
-  const range = e.range ? (e.range[0] === e.range[1] ? `${e.range[0]}` : e.range.join('–')) : `${e.reps}`;
+  const range = e.range ? (e.range[0] === e.range[1] ? `${e.range[0]}` : e.range.join('–')) : e.reps != null ? `${e.reps}` : 'rip.';
   const grp = ssGroup(sch.id, sess.giorno, exs, sess.idx);
   const rest = grp ? ssRest(exs, grp) : restSeconds(e.recupero, e.range);
   const prim = musclesFor(e).primary, sec = musclesFor(e).secondary || [];
 
   const linksP = ssLinks(sch.id, sess.giorno, exs);
   let h = `<div class="progress">${exs.map((x, i) => `<i class="${i === sess.idx ? 'cur' : sess.esercizi[x.id]?.saltato ? 'skip' : isExDone(sess, x) ? 'done' : ''}${linksP.has(x.id) ? ' ss' : ''}"></i>`).join('')}</div>`;
-  h += `<div class="ex-head"><div><h2>${esc(e.nome)}</h2><div class="target"><b>${e.serie} serie × ${range} rip.</b> · recupero ${fmtRest(rest)}${grp ? ' dopo il giro' : ''}</div></div></div>`;
+  h += `<div class="ex-head"><div><h2>${esc(e.nome)}</h2><div class="target">${e.libero ? `<b>${rec.serie.length} serie</b>` : `<b>${e.serie} serie × ${range} rip.</b>`} · recupero ${fmtRest(rest)}${grp ? ' dopo il giro' : ''}</div></div></div>`;
   if (grp) {
     const others = grp.filter((k) => k !== sess.idx).map((k) => exs[k].nome).join(' e ');
     h += `<div class="ss-banner"><b>⛓ Superserie</b> con ${esc(others)}: una serie per esercizio, poi recupero. <button id="ssOff">Separa</button></div>`;
@@ -400,9 +524,9 @@ function renderSession() {
   h += `<div class="chips">${prim.map((m) => `<span class="chip"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}${sec.map((m) => `<span class="chip sec"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}</div>`;
   h += `<div class="card prev"><h3>Le volte scorse</h3>`;
   if (hist.length) {
-    h += `<table class="num"><tr><th>Sett.</th><th>Carico</th><th>Rip.</th></tr>`;
+    h += `<table class="num"><tr><th>${e.libero ? 'Quando' : 'Sett.'}</th><th>Carico</th><th>Rip.</th></tr>`;
     hist.slice(-3).reverse().forEach((x, i) => {
-      h += `<tr class="${i === 0 ? 'best' : ''}"><td>${x.settimana}${x.data ? ` <span class="muted">(${dShort(x.data)})</span>` : ''}</td><td>${esc(loadText(e, x))}</td><td>${esc(repsText(x, e.serie))}</td></tr>`;
+      h += `<tr class="${i === 0 ? 'best' : ''}"><td>${e.libero ? `${dShort(x.data)} <span class="muted">${esc(x.dove || '')}</span>` : `${x.settimana}${x.data ? ` <span class="muted">(${dShort(x.data)})</span>` : ''}`}</td><td>${esc(loadText(e, x))}</td><td>${esc(repsText(x, e.serie))}</td></tr>`;
     });
     h += `</table>`;
     if (atTop(e, lastH)) h += `<div class="hint">L'ultima volta sei arrivato in cima al range (${e.range[1]} rip.) in tutte le serie: con la doppia progressione puoi salire di carico. Di quanto lo decide il PT.</div>`;
@@ -424,6 +548,7 @@ function renderSession() {
       <button class="tick" data-act="done" aria-label="Serie ${i + 1} fatta"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></div>`;
   });
   h += `</div>`;
+  if (e.libero) h += `<div class="row" style="gap:8px;margin-top:8px"><button class="btn small ghost" id="setAdd">+ Serie</button>${rec.serie.length > 1 && !rec.serie[rec.serie.length - 1].fatto ? '<button class="btn small ghost" id="setDel">− Serie</button>' : ''}<span class="grow"></span><button class="btn small ghost" id="exDel">Togli esercizio</button></div>`;
   if (isBw) h += `<div class="bw-info">Peso corporeo usato: <b>${fmt(sess.pesoCorporeo)} kg</b>. Il carico è peso corporeo + zavorra (senza zavorra, solo peso corporeo). Il peso viene dalle pesate di questa settimana.</div>`;
 
   const allDone = curSet === -1;
@@ -431,7 +556,7 @@ function renderSession() {
   h += `<div class="nav-row"><button class="btn ghost" id="prev" ${sess.idx === 0 ? 'disabled' : ''} aria-label="Esercizio precedente">←</button>`;
   sessCtx = { sess, e, rec, curSet, rest, exs, allDone, last };
   h += `<div id="mainSlot">${mainBtnHTML()}</div>`;
-  h += `</div><div class="rest-adj" id="restAdj" ${timer ? '' : 'hidden'}><button data-t="-15">−15″</button><button data-t="+15">+15″</button></div><div class="links"><button id="skip">${sess.idx === exs.length - 1 ? 'Vai al riepilogo' : 'Prossimo esercizio'}</button><button id="list">Lista esercizi</button><button id="finish">Termina</button></div>`;
+  h += `</div><div class="rest-adj" id="restAdj" ${timer ? '' : 'hidden'}><button data-t="-15">−15″</button><button data-t="+15">+15″</button></div><div class="links">${sess.libero ? '<button id="freeAdd">+ Aggiungi esercizio</button>' : ''}<button id="skip">${sess.idx === exs.length - 1 ? 'Vai al riepilogo' : 'Prossimo esercizio'}</button><button id="list">Lista esercizi</button><button id="finish">Termina</button></div>`;
   $app.innerHTML = h;
   if (lib) animate(document.getElementById('fig'), lib, lib.title);
 
@@ -479,6 +604,7 @@ function renderSession() {
   if (ssOn) ssOn.onclick = () => { setSsLink(sch.id, sess.giorno, exs, e.id, true); route(); };
   document.getElementById('list').onclick = () => showList(sess, exs);
   document.getElementById('finish').onclick = () => { location.hash = '#/riepilogo'; };
+  if (sess.libero) bindFreeSession(sess, e, rec);
   keepAwake();
 }
 
@@ -492,13 +618,14 @@ function toggleSet(sess, e, rec, i, rest, exs) {
   if (isBw) s.zavorra = lv ?? 0; else s.carico = lv;
   if (!isBw && s.carico == null && e.tipoCarico !== 'free') { toast('Scrivi il carico della serie'); row.querySelector('[data-f=load]').focus(); return; }
   s.reps = rv ?? e.reps ?? (e.range ? e.range[1] : null); // vuoto = ripetizioni prescritte, come nel diario
+  if (s.reps == null) { toast('Scrivi le ripetizioni della serie'); row.querySelector('[data-f=reps]').focus(); return; }
   if (isBw) { s.pesoCorporeo = sess.pesoCorporeo; s.carico = Math.round((sess.pesoCorporeo + (s.zavorra || 0)) * 100) / 100; }
   if (e.tipoCarico === 'free' && s.carico == null) s.carico = 0;
   s.fatto = true;
   // il carico si propaga alle serie successive non ancora fatte
   rec.serie.slice(i + 1).forEach((n) => { if (!n.fatto) { if (isBw) n.zavorra = s.zavorra; else n.carico = s.carico; } });
   save();
-  const sch = DATA.schede.find((k) => k.id === sess.scheda);
+  const sch = sessSch(sess);
   const grp = sch && ssGroup(sch.id, sess.giorno, exs, sess.idx);
   if (grp) {
     const recs = grp.map((k) => ensureRec(sess, exs[k]));
@@ -518,7 +645,7 @@ function toggleSet(sess, e, rec, i, rest, exs) {
 }
 
 function showList(sess, exs) {
-  const sch = DATA.schede.find((s) => s.id === sess.scheda);
+  const sch = sessSch(sess);
   let h = `<div class="ex-list">`;
   exs.forEach((x, i) => {
     const r = sess.esercizi[x.id];
@@ -529,7 +656,7 @@ function showList(sess, exs) {
   });
   h += `</div>`;
   stopAnim();
-  setTop(`Giorno ${sess.giorno} · esercizi`, dayName(sch, sess.giorno), '#/sessione');
+  setTop(sess.libero ? 'Allenamento libero · esercizi' : `Giorno ${sess.giorno} · esercizi`, sess.libero ? dLong(sess.data) : dayName(sch, sess.giorno), '#/sessione');
   $app.innerHTML = h;
   $app.querySelectorAll('[data-i]').forEach((b) => { b.onclick = () => { sess.idx = +b.dataset.i; save(); route(); }; });
   document.getElementById('back').onclick = () => route();
@@ -607,10 +734,10 @@ async function keepAwake() {
 
 // ---------------------------------------------------------------- RIEPILOGO
 function sessionText(sess) {
-  const sch = DATA.schede.find((s) => s.id === sess.scheda);
+  const sch = sessSch(sess);
   if (!sch) return `Allenamento giorno ${sess.giorno} · ${dLong(sess.data)} (scheda ${sess.scheda} non caricata)`;
   const exs = sch.esercizi.filter((e) => e.giorno === sess.giorno);
-  const lines = [`Allenamento giorno ${sess.giorno} (${dayName(sch, sess.giorno)}) · Scheda ${sch.id}, settimana ${sess.settimana} · ${dLong(sess.data)}`];
+  const lines = [sess.libero ? `Allenamento libero · ${dLong(sess.data)} (fuori scheda)` : `Allenamento giorno ${sess.giorno} (${dayName(sch, sess.giorno)}) · Scheda ${sch.id}, settimana ${sess.settimana} · ${dLong(sess.data)}`];
   for (const e of exs) {
     const r = sess.esercizi[e.id];
     if (r && r.saltato) { lines.push(`${e.nome}: saltato`); continue; }
@@ -638,11 +765,11 @@ function tonnage(sess) {
 function renderSummary() {
   const sess = S.current && S.sessions.find((s) => s.id === S.current);
   if (!sess) { location.hash = '#/storico'; return; }
-  const sch = DATA.schede.find((s) => s.id === sess.scheda);
+  const sch = sessSch(sess);
   if (!sch) { location.hash = '#/'; return; }
   document.body.classList.add('in-session');
   stopAnim();
-  setTop('Riepilogo allenamento', `Giorno ${sess.giorno} · settimana ${sess.settimana}`, '#/sessione');
+  setTop('Riepilogo allenamento', sess.libero ? `Allenamento libero · ${dShort(sess.data)}` : `Giorno ${sess.giorno} · settimana ${sess.settimana}`, '#/sessione');
   const { t, n } = tonnage(sess);
   const mins = Math.round((Date.now() - sess.inizio) / 60000);
   const txt = sessionText(sess);
@@ -660,10 +787,11 @@ function renderSummary() {
   document.getElementById('close').onclick = () => {
     sess.chiusa = true; sess.fine = Date.now(); S.current = null; save(); stopTimer();
     try { wake && wake.release(); } catch (e) { /* niente */ }
-    toast(`Allenamento del giorno ${sess.giorno} salvato`);
+    if (sess.libero && !tonnage(sess).n) { S.sessions = S.sessions.filter((s) => s.id !== sess.id); save(); toast('Allenamento libero vuoto: non salvato'); location.hash = '#/'; return; }
+    toast(sess.libero ? 'Allenamento libero salvato' : `Allenamento del giorno ${sess.giorno} salvato`);
     location.hash = '#/';
   };
-  document.getElementById('resume').onclick = () => { if (sess.idx >= sch.esercizi.filter((e) => e.giorno === sess.giorno).length) sess.idx -= 1; save(); location.hash = '#/sessione'; };
+  document.getElementById('resume').onclick = () => { if (sess.idx >= sch.esercizi.filter((e) => e.giorno === sess.giorno).length) sess.idx = Math.max(0, sess.idx - 1); save(); location.hash = '#/sessione'; };
 }
 
 // ---------------------------------------------------------------- LIBRERIA
@@ -769,6 +897,11 @@ function renderExercise(key, from) {
       h += `<table class="num"><tr><th>Sett.</th><th>Carico</th><th>Rip.</th></tr>${hist.slice().reverse().map((x) => `<tr><td>${x.settimana}${x.data ? ` <span class="muted">(${dShort(x.data)})</span>` : ''}</td><td>${esc(loadText(e, x))}</td><td>${esc(repsText(x, e.serie))}</td></tr>`).join('')}</table>`;
     } else h += `<div class="muted">Nessun carico registrato.</div>`;
     h += `</div>`;
+  }
+  const lib = historyMov(key).filter((x) => x.dove === 'Libero');
+  if (lib.length) {
+    const ex0 = { tipoCarico: guessLoad(L.title) };
+    h += `<div class="section-title">Negli allenamenti liberi</div><div class="card prev"><table class="num"><tr><th>Data</th><th>Carico</th><th>Rip.</th></tr>${lib.slice().reverse().map((x) => `<tr><td>${dShort(x.data)}</td><td>${esc(loadText(ex0, x))}</td><td>${esc(repsText(x))}</td></tr>`).join('')}</table></div>`;
   }
   $app.innerHTML = h;
   animate(document.getElementById('fig'), L, L.title);
@@ -997,7 +1130,11 @@ function renderHistory(sub = 'riepilogo') {
     h += `<div class="card table-wrap"><table class="tbl num"><tr><th>Gruppo</th><th>Esercizi</th><th>Serie/sett.</th><th>Prima</th><th>Ultima</th><th>Var.</th></tr>
       ${gs.rows.sort((a, b) => b.serie - a.serie).map((r) => `<tr><td>${esc(r.gruppo)}</td><td>${r.esercizi}</td><td>${r.serie}</td><td>${fmt(r.prima, 0)}</td><td>${fmt(r.ultima, 0)}</td><td class="${tone(r.variazione)}">${pct(r.variazione)}</td></tr>`).join('')}</table></div>`;
     h += `<div class="section-title">Settimane</div><div class="card table-wrap"><table class="tbl num"><tr><th>Sett.</th><th>Dal</th><th>Sedute</th><th>Serie</th><th>Tonn.</th><th>Peso</th></tr>
-      ${st.sett.slice().reverse().map((s) => `<tr class="${s.completa ? '' : 'dim'}"><td>S${s.globale}</td><td>${dShort(s.dal)}</td><td>${s.sedute}/${s.previsti}</td><td>${s.serie}</td><td>${fmt(s.tonn, 0)}</td><td>${fmt(s.peso, 2)}</td></tr>`).join('')}</table></div>`;
+      ${st.sett.slice().reverse().map((s) => `<tr class="${s.completa ? '' : 'dim'}"><td>S${s.globale}</td><td>${dShort(s.dal)}</td><td>${s.sedute}/${s.previsti}</td><td>${s.serie}</td><td>${fmt(s.tonn, 0)}</td><td>${fmt(s.peso, 2)}</td></tr>`).join('')}</table></div>`;    if (st.liberiSett.length) {
+      h += `<div class="section-title">Allenamenti liberi</div><div class="muted small" style="margin:-4px 0 8px">Fuori scheda: tonnellaggio a parte, non entra nei confronti tra settimane della scheda.</div>
+        <div class="card table-wrap"><table class="tbl num"><tr><th>Sett.</th><th>Dal</th><th>Sedute</th><th>Serie</th><th>Tonn.</th></tr>
+        ${st.liberiSett.slice().reverse().map((s) => `<tr><td>S${s.globale}</td><td>${dShort(s.dal)}</td><td>${s.sedute}</td><td>${s.serie}</td><td>${fmt(s.tonn, 0)}</td></tr>`).join('')}</table></div>`;
+    }
   }
 
 
@@ -1035,8 +1172,8 @@ function historyListHTML() {
   for (const s of list) {
     const { t, n } = tonnage(s);
     const lines = sessionText(s).split('\n').slice(1);
-    h += `<div class="card hist-session" style="margin-bottom:10px"><div class="row"><div class="grow"><h3>Giorno ${esc(s.giorno)} · ${dLong(s.data)}${s.id === S.current ? ' · in corso' : ''}</h3>
-      <div class="muted" style="font-size:13px">Scheda ${s.scheda}, settimana ${s.settimana} · ${n} serie · ${fmt(t, 0)} kg</div></div>
+    h += `<div class="card hist-session" style="margin-bottom:10px"><div class="row"><div class="grow"><h3>${s.libero ? 'Allenamento libero' : `Giorno ${esc(s.giorno)}`} · ${dLong(s.data)}${s.id === S.current ? ' · in corso' : ''}</h3>
+      <div class="muted" style="font-size:13px">${s.libero ? 'Fuori scheda' : `Scheda ${s.scheda}, settimana ${s.settimana}`} · ${n} serie · ${fmt(t, 0)} kg</div></div>
       <button class="btn small ghost" data-copy="${s.id}">Copia</button><button class="btn small ghost" data-del="${s.id}" aria-label="Elimina">✕</button></div>
       <ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></div>`;
   }
@@ -1080,7 +1217,7 @@ const mondayOf = (iso) => { const d = new Date(iso + 'T12:00:00Z'); return addDa
 function exportWeeks() {
   const set = new Set();
   for (const x of S.sessions) if (x.chiusa || x.id === S.current) {
-    const sch = DATA.schede.find((k) => k.id === x.scheda);
+    const sch = !x.libero && DATA.schede.find((k) => k.id === x.scheda);
     set.add(sch && sch.settimane[x.settimana - 1] ? sch.settimane[x.settimana - 1] : mondayOf(x.data));
   }
   for (const p of S.pesate || []) set.add(mondayOf(p.data));
@@ -1090,11 +1227,12 @@ function exportWeeks() {
 
 function weekExport(mon, st) {
   const al = addDays(mon, 6);
-  const sessions = S.sessions.filter((x) => {
-    const sch = DATA.schede.find((k) => k.id === x.scheda);
+  const all = S.sessions.filter((x) => {
+    const sch = !x.libero && DATA.schede.find((k) => k.id === x.scheda);
     const d = sch && sch.settimane[x.settimana - 1] ? sch.settimane[x.settimana - 1] : mondayOf(x.data);
     return d === mon && (x.chiusa || x.id === S.current);
   });
+  const sessions = all.filter((x) => !x.libero), liberiS = all.filter((x) => x.libero);
   const pesate = (S.pesate || []).filter((p) => p.data >= mon && p.data <= al).sort((a, b) => (a.data < b.data ? -1 : 1));
   const misure = (S.misure || []).filter((m) => m.data >= mon && m.data <= al).sort((a, b) => (a.data < b.data ? -1 : 1));
   const misureDiario = misure.map((m) => {
@@ -1133,7 +1271,7 @@ function weekExport(mon, st) {
   const week = st.sett.find((k) => k.dal === mon);
   const testo = [
     `Settimana dal ${dShort(mon)} al ${dShort(al)}` + (sch.id != null ? ` · Scheda ${sch.id}, settimana ${w} · sedute ${sedute.join(' ') || 'nessuna'}` : ''),
-    ...sessions.map((x) => sessionText(x)),
+    ...all.map((x) => sessionText(x)),
     pesate.length ? 'Pesate: ' + pesate.map((p) => `${dShort(p.data)} ${fmt(p.peso)} kg`).join(' · ') : 'Pesate: nessuna inserita nell\'app',
     ...misure.map((m) => `Misure del ${dShort(m.data)}: ` + MISURE.filter(([k]) => m[k] != null).map(([k, l, u]) => `${l.toLowerCase()} ${fmt(m[k])}${u === '%' ? '%' : ' ' + u}`).join(' · ')),
   ].join('\n\n');
@@ -1141,7 +1279,8 @@ function weekExport(mon, st) {
     settimana: { dal: mon, al, globale: st.gw(mon), scheda: sch.id, settimana_scheda: w, sedute_svolte: sedute.join(' '), cella_sedute: w && firstRow ? colLetter(5 + w - 1) + (firstRow - 2) : null },
     riepilogo: week ? { tonnellaggio: week.tonn, serie: week.serie, peso_medio: week.peso } : null,
     testo, diario: { allenamento: righe, pesate: pesate.map((p) => ({ data: p.data, peso: p.peso })), misure: misureDiario },
-    sessions, pesate, misure,
+    liberi: liberiS.map(liberoExport),
+    sessions: all, pesate, misure,
   };
 }
 
@@ -1177,8 +1316,8 @@ function buildExport(per, key) {
     tipo: 'palestra-export', versione: 2, creato: new Date().toISOString(),
     profilo: { nascita: S.settings.nascita || null, eta: etaAl(S.settings.nascita), altezza: S.settings.altezza || null },
     periodo: { tipo: per, chiave: key, etichetta, dal, al, settimane: weeks.length },
-    nota: 'Export dell\'app Palestra, diviso per settimane. Le celle si riferiscono al foglio «Allenamento» del Diario_palestra (carico in colonna E+settimana della scheda, ripetizioni medie in W+settimana). Pesate e misure vanno nel foglio «Peso e misure», sulla riga della data, nelle colonne indicate (grasso e viscerale in percentuale: nel foglio si scrivono come frazione, 13% = 0,13). Trazioni e dip: carico = peso corporeo + zavorra. Manubri: somma dei due, tranne gli esercizi per lato.',
-    settimane: weeks.map((w) => ({ settimana: w.settimana, riepilogo: w.riepilogo, diario: w.diario })),
+    nota: 'Export dell\'app Palestra, diviso per settimane. Le celle si riferiscono al foglio «Allenamento» del Diario_palestra (carico in colonna E+settimana della scheda, ripetizioni medie in W+settimana). Pesate e misure vanno nel foglio «Peso e misure», sulla riga della data, nelle colonne indicate (grasso e viscerale in percentuale: nel foglio si scrivono come frazione, 13% = 0,13). Trazioni e dip: carico = peso corporeo + zavorra. Manubri: somma dei due, tranne gli esercizi per lato. «liberi»: allenamenti fuori scheda, senza celle del diario (foglio «Allenamenti liberi», tonnellaggio a parte).',
+    settimane: weeks.map((w) => ({ settimana: w.settimana, riepilogo: w.riepilogo, diario: w.diario, liberi: w.liberi })),
     testo: [`Export ${etichetta}`, ...weeks.map((w) => w.testo)].join('\n\n————\n\n'),
     sessions: weeks.flatMap((w) => w.sessions), pesate: weeks.flatMap((w) => w.pesate), misure: weeks.flatMap((w) => w.misure),
   };
@@ -1289,6 +1428,7 @@ function route() {
   if (!parts.length) return renderHome();
   if (parts[0] === 'giorno') return renderDay(parts[1]);
   if (parts[0] === 'sessione') return renderSession();
+  if (parts[0] === 'libero') return renderFreeStart();
   if (parts[0] === 'riepilogo') return renderSummary();
   if (parts[0] === 'esercizi') return renderLibrary();
   if (parts[0] === 'esercizio') return renderExercise(parts[1], params.get('from'));

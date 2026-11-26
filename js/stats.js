@@ -60,6 +60,23 @@ export function makeStats(DATA, S, today) {
     }
   }
 
+  // ---- allenamenti liberi (fuori scheda): righe per esercizio, tonnellaggio per settimana a parte
+  const liberi = [];
+  for (const s of S.sessions || []) {
+    if (!s.libero || !s.chiusa) continue;
+    for (const ex of s.lista || []) {
+      const e = sessEntry(s, ex);
+      if (e) liberi.push({ data: s.data, globale: gw(s.data), sessione: s.id, esercizio: ex.nome, key: ex.illustrazione, carico: e.carico, reps: r2(e.reps), serie: e.serieFatte, tonn: Math.round(e.tonn) });
+    }
+  }
+  const liberiSett = [];
+  for (const l of liberi) {
+    let o = liberiSett.find((x) => x.globale === l.globale);
+    if (!o) { o = { globale: l.globale, dal: monday(l.globale), sedute: new Set(), tonn: 0, serie: 0 }; liberiSett.push(o); }
+    o.sedute.add(l.sessione); o.tonn += l.tonn; o.serie += l.serie;
+  }
+  liberiSett.forEach((o) => { o.sedute = o.sedute.size; }); liberiSett.sort((a, b) => a.globale - b.globale);
+
   // ---- settimane
   const settimane = [];
   for (const sch of DATA.schede) {
@@ -180,6 +197,6 @@ export function makeStats(DATA, S, today) {
   const pw = pesoSett;
   const kpiPeso = pw.length ? { peso: pw[pw.length - 1].peso, globale: pw[pw.length - 1].globale, delta: pw.length > 1 ? pw[pw.length - 1].peso - pw[pw.length - 2].peso : null } : null;
 
-  return { gw, monday, pesate, tendenza, carichi, settimane, sett, pesoSett, massimali, forza, tonnKpi, gruppiSett, gruppiSintesi,
+  return { gw, monday, pesate, tendenza, carichi, liberi, liberiSett, settimane, sett, pesoSett, massimali, forza, tonnKpi, gruppiSett, gruppiSintesi,
     misure, composizione, kpiPeso, isFull };
 }
