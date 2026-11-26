@@ -236,7 +236,8 @@ export function drawFront3(P, ex) {
     g += handSide(J['hand' + s], J['elbow' + s], C3.skin);
     // deltoide frontale: cappuccio sulla spalla orientato lungo il braccio
     const sp = J['shoulder' + s], ad = norm(sub(J['elbow' + s], sp));
-    const anyD = prim.some((m) => m.startsWith('deltoidi')) ? 'mp' : sec.some((m) => m.startsWith('deltoidi')) ? 'ms' : 'mb';
+    // esercizi a un braccio (ex.oneArm = 'R' | 'L'): il deltoide dell'altro braccio resta neutro
+    const anyD = ex.oneArm && ex.oneArm !== s ? 'mb' : prim.some((m) => m.startsWith('deltoidi')) ? 'mp' : sec.some((m) => m.startsWith('deltoidi')) ? 'ms' : 'mb';
     const c = addv(addv(sp, ad, 4.5), [sg, 0], 1.5);
     g += `<ellipse class="${anyD}" cx="${r1(c[0])}" cy="${r1(c[1])}" rx="9" ry="7" transform="rotate(${r1(Math.atan2(ad[1], ad[0]) * 180 / Math.PI)} ${r1(c[0])} ${r1(c[1])})"/>`;
   }

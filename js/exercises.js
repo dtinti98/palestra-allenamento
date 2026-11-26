@@ -162,12 +162,15 @@ export const LIB = {
     tips: ['Busto leggermente inclinato in avanti', 'Scendi finché le spalle stanno bene', 'Solo senza fastidi a spalle e sterno'],
   },
   bent_lateral_raise: {
-    title: 'Alzate laterali a busto inclinato', primary: ['deltoidi'], secondary: ['deltoidi-post', 'trapezi'],
-    A: { hip: [96, 116], torso: 140, neck: 146, footN: [112, 187], footF: [106, 187], uaN: 4, faN: 6, uaF: 0, faF: 2 },
-    B: { hip: [96, 116], torso: 140, neck: 146, footN: [112, 187], footF: [106, 187], uaN: 70, uaScaleN: 0.6, faN: 70, faScaleN: 0.6, uaF: 2, faF: 4 },
-    front: (J) => dbs(J),
-    tips: ['Busto inclinato di circa 45°', 'Traiettoria pulita, braccia di lato', 'Controllo in discesa'],
+    // un braccio: una mano tiene un supporto, il corpo si inclina dal lato opposto e l'altro braccio alza il manubrio
+    title: 'Alzate laterali a busto inclinato', view: 'front', oneArm: 'R', primary: ['deltoidi'], secondary: ['trapezi', 'deltoidi-post'],
+    A: { hip: [116, 118], torso: 198, thR: -14, shR: -14, thL: 22, shL: 22, uaR: 4, faR: 2, uaL: 84, faL: 82, th: 0, sh: 0, ua: 0, fa: 0 },
+    B: { hip: [116, 118], torso: 198, thR: -14, shR: -14, thL: 22, shL: 22, uaR: 88, faR: 92, uaL: 84, faL: 82, th: 0, sh: 0, ua: 0, fa: 0 },
+    back: (J) => prop.line([J.handL[0] + 3, 14], [J.handL[0] + 3, 190], 6, COL.frame),
+    front: (J) => prop.db(J.handR, false, 7),
+    tips: ['Tieniti a un supporto e inclinati dal lato opposto', 'Alza il manubrio di lato fino all\'altezza della spalla', 'Un braccio alla volta, discesa lenta'],
   },
+
   hip_thrust_machine: {
     title: 'Hip thrust al macchinario', primary: ['glutei'], secondary: ['femorali', 'quadricipiti'],
     A: { hip: [104, 174], torso: 234, neck: 246, footN: [152, 188], footF: [146, 188], kneeN: 'up', kneeF: 'up', handN: [110, 160], handF: [106, 160], elbowN: 'up', elbowF: 'up' },

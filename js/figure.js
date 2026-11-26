@@ -195,10 +195,12 @@ export function frontJoints(P) {
     J['shoulder' + s] = [J.neckBase[0] + sign * SW * -up[1] - up[0] * (3 - (P.shrug || 0)), J.neckBase[1] + sign * SW * up[0] - up[1] * (3 - (P.shrug || 0))];
     J['hipJ' + s] = [P.hip[0] + sign * HW, P.hip[1]];
     const m = (t) => sign * t; // angoli specchiati: positivo = verso l'esterno
-    J['elbow' + s] = add(J['shoulder' + s], dir(m(P.ua)), L.ua * (P.uaScale ?? 1));
-    J['hand' + s] = add(J['elbow' + s], dir(m(P.fa)), L.fa * (P.faScale ?? 1));
-    J['knee' + s] = add(J['hipJ' + s], dir(m(P.th)), L.th * (P.thScale ?? 1));
-    J['ankle' + s] = add(J['knee' + s], dir(m(P.sh)), L.sh * (P.shScale ?? 1));
+    // valori per lato (es. uaR, thL) opzionali: servono negli esercizi a un braccio o con il corpo inclinato
+    const v = (k) => P[k + s] ?? P[k];
+    J['elbow' + s] = add(J['shoulder' + s], dir(m(v('ua'))), L.ua * (v('uaScale') ?? 1));
+    J['hand' + s] = add(J['elbow' + s], dir(m(v('fa'))), L.fa * (v('faScale') ?? 1));
+    J['knee' + s] = add(J['hipJ' + s], dir(m(v('th'))), L.th * (v('thScale') ?? 1));
+    J['ankle' + s] = add(J['knee' + s], dir(m(v('sh'))), L.sh * (v('shScale') ?? 1));
     J['toe' + s] = add(J['ankle' + s], [sign * 0.5, 0.2], 7);
   }
   return J;
