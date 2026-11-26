@@ -27,6 +27,8 @@ function save() {
 }
 
 // ---------------------------------------------------------------- utilità
+// nei titoli in Fraunces il «+» è troppo piccolo: lo mostro in Public Sans
+const ttl = (t) => esc(t).replace(/\+/g, '<span class="pl">+</span>');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n, d = 2) => (n == null || n === '' || Number.isNaN(+n) ? '–' : (+n).toLocaleString('it-IT', { maximumFractionDigits: d }));
 const parseNum = (v) => { if (v == null || v === '') return null; const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
@@ -277,7 +279,7 @@ function renderHome() {
     const gear = gearFor(sch, next);
     h += `<section class="next-box"><div class="kick">Prossima seduta</div>
       <div class="lt"><span class="L">${next}</span><div class="grow">${gear.length ? `<div class="gearlbl">Porta con te</div><div class="gear">${gear.map((x) => `<span>${esc(x)}</span>`).join('')}</div>` : ''}
-      <h2>${esc(dayName(sch, next))}</h2><div class="m">${exs.length} esercizi · ${serie} serie</div></div></div>
+      <h2>${ttl(dayName(sch, next))}</h2><div class="m">${exs.length} esercizi · ${serie} serie</div></div></div>
       <ol>${exs.slice(0, 3).map((e) => `<li><span>${esc(e.nome)}</span><span>${e.serie} × ${esc(rangeTxt(e))}</span></li>`).join('')}${exs.length > 3 ? `<li class="more">e ${exs.length - 3 === 1 ? 'un altro esercizio' : `altri ${exs.length - 3} esercizi`}</li>` : ''}</ol>
       <button class="btn primary block go" id="goNext">Inizia giornata ${next}</button></section>`;
   } else {
@@ -336,7 +338,7 @@ function renderDay(g) {
   document.body.classList.add('day-page');
   const links = ssLinks(sch.id, g, exs);
   let h = cur ? switchBannerHTML(cur, `il giorno ${g}`) : '';
-  h += `<h1 class="pg-title">${esc(dayName(sch, g))}</h1>`;
+  h += `<h1 class="pg-title">${ttl(dayName(sch, g))}</h1>`;
   const gear = gearFor(sch, g);
   if (gear.length) h += `<div class="gear-blk"><div class="gearlbl">Porta con te</div><div class="gear">${gear.map((x) => `<span>${esc(x)}</span>`).join('')}</div></div>`;
   h += `<div class="ex-list">`;
@@ -1167,7 +1169,7 @@ function renderHistory(sub = 'riepilogo') {
     const weeks = [...new Set(st.carichi.filter((c) => c.scheda === sch.id).map((c) => c.settimana))].sort((a, b) => a - b);
     for (const g of sch.giorni) {
       const list = sch.esercizi.filter((e) => e.giorno === g);
-      h += `<h4 class="tbl-h">Giornata ${g} · ${esc(dayName(sch, g))}</h4><div class="table-wrap"><table class="tbl num loads"><tr><th class="sticky">Esercizio</th>${weeks.map((w) => `<th>S${w}</th>`).join('')}<th>Var.</th></tr>`;
+      h += `<h4 class="tbl-h">Giornata ${g} · ${ttl(dayName(sch, g))}</h4><div class="table-wrap"><table class="tbl num loads"><tr><th class="sticky">Esercizio</th>${weeks.map((w) => `<th>S${w}</th>`).join('')}<th>Var.</th></tr>`;
       for (const e of list) {
         const rs = st.carichi.filter((c) => c.id === e.id);
         const vals = weeks.map((w) => rs.find((r) => r.settimana === w));

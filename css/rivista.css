@@ -424,3 +424,4 @@ details.ed-ex.ss { box-shadow: inset 3px 0 0 var(--accent-2); }
 .chip:not(.sec) { color: var(--accent); font-weight: 600; border-color: var(--accent); }
 .chip .dot { width: 8px; height: 8px; }
 .tips { margin: 0; }
+.pl { font-family: var(--sans); font-weight: 600; padding: 0 .06em; }
