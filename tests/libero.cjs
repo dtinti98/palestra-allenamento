@@ -53,7 +53,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
     await p.click('[data-key]'); await p.waitForTimeout(250);
     const name1 = await p.$eval('.ex-head h2', (e) => e.textContent);
     /hip thrust/i.test(name1) ? ok('esercizio aggiunto: ' + name1) : ko('esercizio aggiunto: ' + name1);
-    const prevTxt = await p.$eval('.card.prev', (e) => e.innerText);
+    const prevTxt = await p.$eval('.prev.last-box', (e) => e.innerText);
     /100/.test(prevTxt) || /Nessun dato/.test(prevTxt) ? ok('le volte scorse dal movimento: ' + prevTxt.split('\n').slice(1, 3).join(' | ')) : ko('volte scorse: ' + prevTxt);
     await overflow('sessione libera');
     // reps obbligatorie
@@ -78,7 +78,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
     s = await st(); const lib = s.sessions.find((x) => x.libero);
     (lib && lib.chiusa && !s.current && lib.lista.length === 2) ? ok('allenamento libero salvato') : ko('libero non salvato');
     // non conta nella scheda
-    await go(''); const doneB = await p.$$eval('a.day', (x) => x.map((a) => a.innerText.includes('Fatto')));
+    await go(''); const doneB = await p.$$eval('a.day', (x) => x.map((a) => a.classList.contains('done')));
     ok('home giornate fatte: ' + doneB.map((x) => (x ? 'x' : '-')).join(''));
     // storico, volume, esercizio
     await go('#/storico/allenamenti'); /Allenamento libero/.test(await p.$eval('#app', (e) => e.innerText)) ? ok('storico: allenamento libero elencato') : ko('storico allenamenti');

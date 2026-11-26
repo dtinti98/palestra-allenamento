@@ -16,7 +16,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
     const st = () => p.evaluate(() => JSON.parse(localStorage.getItem('palestra.v1')));
     const txt = () => p.$eval('#app', (e) => e.innerText);
     const overflow = async (where) => { const o = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); if (o > 1) ko(`${where}: scroll orizzontale ${o}px`); };
-    const dayDone = () => p.$$eval('a.day', (x) => x.map((a) => (a.innerText.includes('Fatto') ? 'x' : '-')).join(''));
+    const dayDone = () => p.$$eval('a.day', (x) => x.map((a) => (a.classList.contains('done') ? 'x' : '-')).join(''));
     const download = async (sel) => { const [d] = await Promise.all([p.waitForEvent('download', { timeout: 4000 }).catch(() => null), p.click(sel)]); if (!d) return null; const f = os.tmpdir() + '/dbg-' + Date.now() + '.json'; await d.saveAs(f); return f; };
 
     await go(''); await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(300);

@@ -2,7 +2,7 @@ import { figureSVG3 as figureSVG, pairSVG3 } from './figure3.js';
 import { LIB, MUSCLES } from './exercises.js';
 import { bodyMapSVG } from './bodymap.js';
 import { makeStats } from './stats.js';
-import { renderSchedeList, renderSchedaEdit, catalog, guessLoad } from './editor.js';
+import { renderSchedeList, renderSchedaEdit, catalog, guessLoad, ATTREZZI_LABEL } from './editor.js';
 import { lineChart, barChart, pairBars, initTips } from './charts.js';
 
 // ---------------------------------------------------------------- stato
@@ -178,6 +178,7 @@ function atTop(ex, h) {
 // ---------------------------------------------------------------- shell
 const view = { anim: null };
 function setTop(title, subtitle = '', back = null) {
+  document.body.classList.remove('masthead');
   document.getElementById('title').textContent = title;
   document.getElementById('subtitle').textContent = subtitle;
   const b = document.getElementById('back');
@@ -242,12 +243,19 @@ function renderHome() {
   const today = todayISO();
   const sch = schedaFor(today);
   const week = weekFor(sch, today);
-  setTop('Allenamento', `Scheda ${sch.id} · settimana ${week} (dal ${dShort(sch.settimane[week - 1])})`);
+  setTop('Allenamento', '');
   setTab('home');
+  document.body.classList.add('masthead');
   const done = doneDays(sch, week);
   const next = sch.giorni.find((g) => !done.has(g));
   const cur = S.current && S.sessions.find((s) => s.id === S.current);
-  let h = '';
+  const nSett = sch.fine ? Math.max(1, Math.round((Date.parse(sch.fine) - Date.parse(sch.inizio)) / 6048e5)) : sch.settimane.length;
+  const dLungo = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
+  // testata a rivista
+  let h = `<header class="mast"><div class="kick">Scheda ${sch.id} · settimana ${Math.min(week, nSett)} di ${nSett}</div>
+    <h1>${esc(sch.nome.split(' - ')[0])}</h1><div class="sub">Dal ${dLungo(sch.inizio)} al ${dLungo(sch.fine || sch.settimane[sch.settimane.length - 1])}</div>
+    <div class="wk" aria-hidden="true">${Array.from({ length: nSett }, (_, i) => `<i class="${i + 1 < week ? 'd' : i + 1 === week ? 'c' : ''}"></i>`).join('')}</div>
+    <div class="wkl"><span>${dShort(sch.inizio).replace(/^0/, '').replace('/0', '/')}</span><span>Questa settimana: ${done.size} di ${sch.giorni.length} sedute</span><span>${dShort(sch.fine).replace(/^0/, '').replace('/0', '/')}</span></div></header>`;
   if (cur) {
     const curSch = sessSch(cur);
     const exs = curSch.esercizi.filter((e) => e.giorno === cur.giorno);
@@ -262,23 +270,53 @@ function renderHome() {
       h += `<a class="card resume" href="#/storico/impostazioni" style="border-color:var(--accent-2)"><div class="grow"><b>Fine settimana: esporta i dati</b><div class="muted">Settimana dal ${dShort(target)}, da caricare in chat per diario e dashboard</div></div><span class="btn small">Esporta</span></a>`;
     }
   }
-  h += `<div class="card hero"><h1>${esc(sch.nome.split(' - ')[0])}</h1><div class="muted">${esc(sch.nome.split(' - ')[1] || '')}</div>
-    <div class="muted">Dal ${dShort(sch.inizio)} al ${dShort(sch.fine)} · ${sch.giorni.length} giorni a settimana</div>
-    <a class="btn small" href="#/schede" style="margin-top:10px;justify-self:start">Gestisci le schede</a></div>`;
-  h += `<div class="section-title">Scegli la giornata</div><div class="days">`;
+  // prossima seduta in primo piano
+  if (next) {
+    const exs = sch.esercizi.filter((e) => e.giorno === next);
+    const serie = exs.reduce((a, e) => a + e.serie, 0);
+    const gear = gearFor(sch, next);
+    h += `<section class="next-box"><div class="kick">Prossima seduta</div>
+      <div class="lt"><span class="L">${next}</span><div class="grow">${gear.length ? `<div class="gearlbl">Porta con te</div><div class="gear">${gear.map((x) => `<span>${esc(x)}</span>`).join('')}</div>` : ''}
+      <h2>${esc(dayName(sch, next))}</h2><div class="m">${exs.length} esercizi · ${serie} serie</div></div></div>
+      <ol>${exs.slice(0, 3).map((e) => `<li><span>${esc(e.nome)}</span><span>${e.serie} × ${esc(rangeTxt(e))}</span></li>`).join('')}${exs.length > 3 ? `<li class="more">e ${exs.length - 3 === 1 ? 'un altro esercizio' : `altri ${exs.length - 3} esercizi`}</li>` : ''}</ol>
+      <button class="btn primary block go" id="goNext">Inizia giornata ${next}</button></section>`;
+  } else {
+    h += `<section class="next-box"><div class="kick">Settimana completata</div><h2>Tutte le ${sch.giorni.length} sedute fatte</h2><div class="m">Puoi rifare una giornata o fare un allenamento libero.</div></section>`;
+  }
+  // giornate della settimana
+  h += `<div class="sec"><span>Questa settimana</span><a href="#/schede">Gestisci le schede</a></div><div class="days">`;
   for (const g of sch.giorni) {
     const n = sch.esercizi.filter((e) => e.giorno === g);
     const series = n.reduce((a, e) => a + e.serie, 0);
-    const cls = done.has(g) ? 'done' : g === next ? 'next' : '';
-    const badge = done.has(g) ? 'Fatto' : g === next ? 'Prossimo' : '';
-    h += `<a class="card day ${cls}" href="#/giorno/${g}">${badge ? `<span class="badge">${badge}</span>` : ''}
-      <span class="letter">${g}</span><span class="name">${esc(dayName(sch, g))}</span>
-      <span class="meta">${n.length} esercizi · ${series} serie</span></a>`;
+    const isDone = done.has(g);
+    const when = isDone ? doneDate(sch, week, g) : null;
+    const st = isDone ? `✓ ${when ? dWeek(when) : 'fatta'}` : g === next ? 'Prossima' : '';
+    h += `<a class="day ${isDone ? 'done' : g === next ? 'next' : ''}" href="#/giorno/${g}"><span class="letter">${g}</span>
+      <span class="grow"><b class="name">${esc(dayName(sch, g))}</b><small class="meta">${n.length} esercizi · ${series} serie</small></span>
+      <span class="st">${st}</span></a>`;
   }
   h += `</div>`;
   h += freeCardHTML();
-  if (DATA.generato) h += `<p class="muted" style="font-size:13px;margin-top:18px">Carichi del diario aggiornati al ${esc(DATA.generato.slice(0, 10).split('-').reverse().join('/'))}. Gli allenamenti che registri qui restano salvati su questo dispositivo.</p>`;
+  if (DATA.generato) h += `<p class="muted foot-note">Carichi del diario aggiornati al ${esc(DATA.generato.slice(0, 10).split('-').reverse().join('/'))}. Gli allenamenti che registri qui restano salvati su questo dispositivo.</p>`;
   $app.innerHTML = h;
+  const gb = document.getElementById('goNext');
+  if (gb) gb.onclick = () => {
+    const c = S.current && S.sessions.find((s) => s.id === S.current);
+    if (c && !(c.scheda === sch.id && c.giorno === next && !c.libero)) { location.hash = `#/giorno/${next}`; return; } // banner nella giornata
+    startSession(sch, next, week);
+  };
+}
+const rangeTxt = (e) => (e.range ? (e.range[0] === e.range[1] ? `${e.range[0]}` : e.range.join('–')) : `${e.reps ?? ''}`);
+const dWeek = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
+// data in cui una giornata è stata fatta (solo per le sedute registrate nell'app)
+function doneDate(sch, week, g) {
+  const s = S.sessions.filter((x) => !x.libero && x.scheda === sch.id && x.settimana === week && x.giorno === g && x.chiusa).sort((a, b) => (a.data < b.data ? 1 : -1))[0];
+  return s ? s.data : null;
+}
+// attrezzatura da portare per una giornata (scelta nell'editor scheda)
+function gearFor(sch, g) {
+  const l = (sch.attrezzatura && sch.attrezzatura[g]) || [];
+  return l.map((k) => ATTREZZI_LABEL[k] || k).filter(Boolean);
 }
 
 // ---------------------------------------------------------------- ANTEPRIMA GIORNATA
@@ -383,7 +421,7 @@ function bindSwitchBanner(onGo) { const b = document.getElementById('swGo'); if 
 // Fuori scheda: esercizi aggiunti man mano. Non conta come seduta della scheda,
 // ma entra nei carichi del movimento, nel tonnellaggio, nello storico e nell'export.
 function freeCardHTML() {
-  return `<div class="section-title">Fuori scheda</div><a class="card free-card" href="#/libero"><div class="grow"><b>Allenamento libero</b><div class="muted">Aggiungi gli esercizi man mano. Non conta nella scheda, ma salva carichi e tonnellaggio.</div></div><span class="btn small">Inizia</span></a>`;
+  return `<a class="free-card" href="#/libero"><div class="grow"><b>Allenamento libero</b><small>Fuori scheda, salva carichi e tonnellaggio</small></div><span class="b2">Inizia</span></a>`;
 }
 function renderFreeStart() {
   const cur = S.current && S.sessions.find((s) => s.id === S.current);
@@ -500,8 +538,8 @@ function renderSession() {
   const lib = libFor(e);
   const rec = ensureRec(sess, e);
   save();
-  if (sess.libero) setTop(`Libero · ${sess.idx + 1}/${exs.length}`, `${dLong(sess.data)} · fuori scheda`, '#/');
-  else setTop(`Giorno ${sess.giorno} · ${sess.idx + 1}/${exs.length}`, `Settimana ${sess.settimana} · ${dayName(sch, sess.giorno)}`, '#/');
+  if (sess.libero) setTop(`Libero · ${sess.idx + 1} di ${exs.length}`, `${dLong(sess.data)} · fuori scheda`, '#/');
+  else setTop(`Giorno ${sess.giorno} · ${sess.idx + 1} di ${exs.length}`, `Settimana ${sess.settimana} · ${dayName(sch, sess.giorno)}`, '#/');
   setTab('');
 
   const hist = history(e, { exclude: sess.id });
@@ -513,50 +551,52 @@ function renderSession() {
 
   const linksP = ssLinks(sch.id, sess.giorno, exs);
   let h = `<div class="progress">${exs.map((x, i) => `<i class="${i === sess.idx ? 'cur' : sess.esercizi[x.id]?.saltato ? 'skip' : isExDone(sess, x) ? 'done' : ''}${linksP.has(x.id) ? ' ss' : ''}"></i>`).join('')}</div>`;
-  h += `<div class="ex-head"><div><h2>${esc(e.nome)}</h2><div class="target">${e.libero ? `<b>${rec.serie.length} serie</b>` : `<b>${e.serie} serie × ${range} rip.</b>`} · recupero ${fmtRest(rest)}${grp ? ' dopo il giro' : ''}</div></div></div>`;
+  h += `<div class="ex-head"><h2>${esc(e.nome)}</h2><div class="target">${e.libero ? `<b>${rec.serie.length} serie</b>` : `<b>${e.serie} × ${range}</b>`} · recupero ${fmtRest(rest)}${grp ? ' dopo il giro' : ''}</div></div>`;
   if (grp) {
     const others = grp.filter((k) => k !== sess.idx).map((k) => exs[k].nome).join(' e ');
     h += `<div class="ss-banner"><b>⛓ Superserie</b> con ${esc(others)}: una serie per esercizio, poi recupero. <button id="ssOff">Separa</button></div>`;
   } else if (exs[sess.idx + 1]) {
     h += `<div class="ss-banner off"><button id="ssOn">+ Fai in superserie con ${esc(exs[sess.idx + 1].nome)}</button></div>`;
   }
-  h += `<div class="split"><div class="figure-wrap session-fig"><div class="paper" id="fig">${lib ? figureSVG(lib, 1, { ghost: true, label: lib.title }) : customFor(e) ? bodyMapSVG(prim, sec) : ''}</div>${lib ? '<button class="play">▶ Movimento</button>' : ''}</div><div style="display:flex;flex-direction:column;gap:10px">`;
-  h += `<div class="chips">${prim.map((m) => `<span class="chip"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}${sec.map((m) => `<span class="chip sec"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}</div>`;
-  h += `<div class="card prev"><h3>Le volte scorse</h3>`;
-  if (hist.length) {
-    h += `<table class="num"><tr><th>${e.libero ? 'Quando' : 'Sett.'}</th><th>Carico</th><th>Rip.</th></tr>`;
-    hist.slice(-3).reverse().forEach((x, i) => {
-      h += `<tr class="${i === 0 ? 'best' : ''}"><td>${e.libero ? `${dShort(x.data)} <span class="muted">${esc(x.dove || '')}</span>` : `${x.settimana}${x.data ? ` <span class="muted">(${dShort(x.data)})</span>` : ''}`}</td><td>${esc(loadText(e, x))}</td><td>${esc(repsText(x, e.serie))}</td></tr>`;
-    });
-    h += `</table>`;
+  h += `<div class="split"><div class="figure-wrap session-fig"><div class="paper figbox" id="fig">${lib ? figureSVG(lib, 1, { ghost: true, label: lib.title }) : customFor(e) ? bodyMapSVG(prim, sec) : ''}</div>${lib ? '<button class="play">▶ Movimento</button>' : ''}</div><div class="side">`;
+  h += `<div class="mus">${prim.map((m) => `<span class="p">${esc(MUSCLES[m])}</span>`).join('')}${sec.map((m) => `<span>${esc(MUSCLES[m])}</span>`).join('')}</div>`;
+  if (lastH) {
+    h += `<div class="prev last-box"><span>Volta scorsa · ${dShort(lastH.data)}${e.libero && lastH.dove ? ` · ${esc(lastH.dove)}` : ''}</span><b class="num">${esc(loadText(e, lastH))} · ${esc(repsText(lastH, e.serie))}</b></div>`;
+    if (hist.length > 1) {
+      h += `<details class="prev-more"><summary>Le volte prima</summary><table class="num">${hist.slice(-4, -1).reverse().map((x) => `<tr><td>${e.libero ? `${dShort(x.data)} <span class="muted">${esc(x.dove || '')}</span>` : `Sett. ${x.settimana} <span class="muted">${dShort(x.data)}</span>`}</td><td>${esc(loadText(e, x))}</td><td>${esc(repsText(x, e.serie))}</td></tr>`).join('')}</table></details>`;
+    }
     if (atTop(e, lastH)) h += `<div class="hint">L'ultima volta sei arrivato in cima al range (${e.range[1]} rip.) in tutte le serie: con la doppia progressione puoi salire di carico. Di quanto lo decide il PT.</div>`;
-  } else h += `<div class="muted">Nessun dato precedente.</div>`;
-  h += `</div></div></div>`;
+  } else h += `<div class="prev last-box"><span>Volta scorsa</span><span>Nessun dato precedente.</span></div>`;
+  h += `</div></div>`;
   const note = (e.note || '').replace(/Rec\.[^.]*\.\s*/, '').replace(/Rip\.[^.]*\.?\s*/, '').trim();
   if (note) h += `<div class="note" style="margin-top:12px">${esc(note)}</div>`;
 
-  // serie
+  // serie: tabella con la serie in corso in evidenza
   const curSet = rec.serie.findIndex((x) => !x.fatto);
   const isBw = e.tipoCarico === 'bw';
-  h += `<div class="sets">`;
+  const lbl = LOAD_LABEL[e.tipoCarico] || 'kg';
+  h += `<div class="sets-hd"><span>Serie</span><span>${esc(lbl.charAt(0).toUpperCase() + lbl.slice(1))}</span><span>Rip.</span><span></span></div><div class="sets">`;
   rec.serie.forEach((x, i) => {
-    const cl = x.fatto ? 'done' : i === curSet ? 'cur' : '';
+    const cl = x.fatto ? 'done' : i === curSet ? 'cur' : 'todo';
     const lv = isBw ? x.zavorra : x.carico;
-    h += `<div class="card set ${cl}" data-i="${i}"><span class="n">${i + 1}</span>
-      <div class="field"><label>${LOAD_LABEL[e.tipoCarico] || 'kg'}</label><div class="stepper"><button data-act="load-" aria-label="Meno carico">−</button><input data-f="load" inputmode="decimal" value="${lv ?? ''}" placeholder="kg" aria-label="Carico serie ${i + 1}"><button data-act="load+" aria-label="Più carico">+</button></div></div>
-      <div class="field"><label>Ripetizioni</label><div class="stepper"><button data-act="reps-" aria-label="Meno ripetizioni">−</button><input data-f="reps" inputmode="numeric" value="${x.reps ?? ''}" placeholder="${esc(range)}" aria-label="Ripetizioni serie ${i + 1}"><button data-act="reps+" aria-label="Più ripetizioni">+</button></div></div>
-      <button class="tick" data-act="done" aria-label="Serie ${i + 1} fatta"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></div>`;
+    const tick = i === curSet ? `id="doneSet"` : `data-act="done"`;
+    h += `<div class="set ${cl}" data-i="${i}"><span class="n">${i + 1}</span>
+      <div class="stepper"><button data-act="load-" aria-label="Meno carico">−</button><input data-f="load" inputmode="decimal" value="${lv ?? ''}" placeholder="kg" aria-label="Carico serie ${i + 1}"><button data-act="load+" aria-label="Più carico">+</button></div>
+      <div class="stepper"><button data-act="reps-" aria-label="Meno ripetizioni">−</button><input data-f="reps" inputmode="numeric" value="${x.reps ?? ''}" placeholder="${esc(range)}" aria-label="Ripetizioni serie ${i + 1}"><button data-act="reps+" aria-label="Più ripetizioni">+</button></div>
+      <button class="tick" ${tick} aria-label="Serie ${i + 1} fatta"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></div>`;
   });
   h += `</div>`;
-  if (e.libero) h += `<div class="row" style="gap:8px;margin-top:8px"><button class="btn small ghost" id="setAdd">+ Serie</button>${rec.serie.length > 1 && !rec.serie[rec.serie.length - 1].fatto ? '<button class="btn small ghost" id="setDel">− Serie</button>' : ''}<span class="grow"></span><button class="btn small ghost" id="exDel">Togli esercizio</button></div>`;
+  if (e.libero) h += `<div class="row free-tools"><button class="btn small ghost" id="setAdd">+ Serie</button>${rec.serie.length > 1 && !rec.serie[rec.serie.length - 1].fatto ? '<button class="btn small ghost" id="setDel">− Serie</button>' : ''}<span class="grow"></span><button class="btn small ghost" id="exDel">Togli esercizio</button></div>`;
   if (isBw) h += `<div class="bw-info">Peso corporeo usato: <b>${fmt(sess.pesoCorporeo)} kg</b>. Il carico è peso corporeo + zavorra (senza zavorra, solo peso corporeo). Il peso viene dalle pesate di questa settimana.</div>`;
 
+  // fascia scura dei comandi
   const allDone = curSet === -1;
   const last = sess.idx === exs.length - 1;
-  h += `<div class="nav-row"><button class="btn ghost" id="prev" ${sess.idx === 0 ? 'disabled' : ''} aria-label="Esercizio precedente">←</button>`;
   sessCtx = { sess, e, rec, curSet, rest, exs, allDone, last };
-  h += `<div id="mainSlot">${mainBtnHTML()}</div>`;
-  h += `</div><div class="rest-adj" id="restAdj" ${timer ? '' : 'hidden'}><button data-t="-15">−15″</button><button data-t="+15">+15″</button></div><div class="links">${sess.libero ? '<button id="freeAdd">+ Aggiungi esercizio</button>' : ''}<button id="skip">${sess.idx === exs.length - 1 ? 'Vai al riepilogo' : 'Prossimo esercizio'}</button><button id="list">Lista esercizi</button><button id="finish">Termina</button></div>`;
+  h += `<div class="sess-foot"><div class="nav-row"><button class="btn ghost" id="prev" ${sess.idx === 0 ? 'disabled' : ''} aria-label="Esercizio precedente">←</button>`;
+  h += `<div id="mainSlot">${mainBtnHTML()}</div></div>`;
+  h += `<div class="rest-adj" id="restAdj" ${timer ? '' : 'hidden'}><button data-t="-15">−15″</button><button data-t="+15">+15″</button></div>`;
+  h += `<div class="links"><button id="list">Lista esercizi</button>${sess.libero ? '<button id="freeAdd">+ Esercizio</button>' : ''}<button id="skip">${last || allDone ? 'Riepilogo giornata' : 'Prossimo esercizio'}</button><button id="finish" class="end">Termina</button></div></div>`;
   $app.innerHTML = h;
   if (lib) animate(document.getElementById('fig'), lib, lib.title);
 
@@ -595,6 +635,7 @@ function renderSession() {
   document.getElementById('prev').onclick = () => { sess.idx = Math.max(0, sess.idx - 1); save(); window.scrollTo(0, 0); route(); };
   // passa al prossimo lasciando le serie come sono (in superserie: dopo tutto il gruppo)
   document.getElementById('skip').onclick = () => {
+    if (sessCtx && sessCtx.allDone && !sessCtx.last) { location.hash = '#/riepilogo'; return; }
     if (rec.saltato) rec.saltato = false;
     sess.idx = (grp ? grp[grp.length - 1] : sess.idx) + 1; save(); window.scrollTo(0, 0); route();
   };
@@ -671,18 +712,24 @@ const timerLeft = () => (timer ? Math.max(0, Math.ceil((timer.end - Date.now()) 
 
 function mainBtnHTML(go = false) {
   const c = sessCtx; if (!c) return '';
-  // il recupero non blocca: il pulsante resta usabile, il bordo si riempie col tempo
+  // il recupero non blocca: la serie successiva si segna quando vuoi; il bordo del riquadro si riempie col tempo
   const ring = timer ? '<svg class="ring" aria-hidden="true"><path pathLength="100"/></svg>' : '';
-  const clock = timer ? `<small class="rest-clock">Recupero <b class="num" id="restClock">${mmss(timerLeft())}</b></small>` : '';
-  const cls = `${timer ? ' resting' : ''}${go ? ' go' : ''}`;
-  return c.allDone
-    ? `<button class="btn primary${cls}" id="next">${ring}<span class="rest-txt"><span>${c.last ? 'Fine allenamento' : 'Prossimo esercizio →'}</span>${clock}</span></button>`
-    : `<button class="btn ok${cls}" id="doneSet">${ring}<span class="rest-txt"><span>Serie ${c.curSet + 1} fatta ✓</span>${clock}</span></button>`;
+  if (c.allDone) {
+    const clock = timer ? `<small class="rest-clock">Recupero <b class="num" id="restClock">${mmss(timerLeft())}</b></small>` : '';
+    return `<button class="btn primary${timer ? ' resting' : ''}${go ? ' go' : ''}" id="next">${ring}<span class="rest-txt"><span>${c.last ? 'Fine allenamento' : 'Prossimo esercizio →'}</span>${clock}</span></button>`;
+  }
+  if (timer) {
+    const nl = String(timer.nextLabel || '').replace(/^Serie/, 'serie');
+    return `<div class="btn rest-box resting">${ring}<div class="grow"><small>Recupero${nl ? ` · poi ${esc(nl)}` : ''}</small><b class="num" id="restClock">${mmss(timerLeft())}</b></div><button id="skipRest" type="button">Salta →</button></div>`;
+  }
+  return `<div class="btn rest-box idle${go ? ' go' : ''}"><div class="grow"><small>Serie ${c.curSet + 1} di ${c.rec.serie.length} · poi recupero</small><b class="num">${fmtRest(c.rest)}</b></div></div>`;
 }
 function bindMainBtn() {
   const c = sessCtx; if (!c) return;
   const ds = document.getElementById('doneSet');
   if (ds) ds.onclick = () => toggleSet(c.sess, c.e, c.rec, c.curSet, c.rest, c.exs);
+  const sk = document.getElementById('skipRest');
+  if (sk) sk.onclick = () => { stopTimer(); const slot = document.getElementById('mainSlot'); slot.innerHTML = mainBtnHTML(); bindMainBtn(); };
   const nx = document.getElementById('next');
   if (nx) nx.onclick = () => { c.sess.idx += 1; save(); window.scrollTo(0, 0); route(); };
   if (timer) { layoutRing(); drawTimer(); }

@@ -5,6 +5,10 @@ import { LIB, MUSCLES } from './exercises.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const LETTERS = 'ABCDEFGHIJ'.split('');
+// attrezzatura da portare, scelta per giornata
+export const ATTREZZI = [['cintura', 'Cintura'], ['fasce', 'Fasce'], ['straps', 'Straps'], ['cintura_zavorra', 'Cintura zavorra'], ['ginocchiere', 'Ginocchiere'],
+  ['gomitiere', 'Gomitiere'], ['magnesite', 'Magnesite'], ['guanti', 'Guanti'], ['elastici', 'Elastici'], ['cavigliere', 'Cavigliere'], ['scarpe_squat', 'Scarpe da squat'], ['asciugamano', 'Asciugamano']];
+export const ATTREZZI_LABEL = Object.fromEntries(ATTREZZI);
 const RECUPERI = ['30″', '45″', '60″', '75″', '90″', '2′', '2′30″', '3′', '4′'];
 export const TIPI_CARICO = [
   ['barbell', 'Bilanciere'], ['machine', 'Macchina o cavi'], ['sum', 'Due manubri (somma)'], ['single', 'Un manubrio'],
@@ -49,7 +53,7 @@ function toDraft(sch, S, dayName, ssLinks) {
       const exs = sch.esercizi.filter((e) => e.giorno === g);
       const links = ssLinks(sch.id, g, exs);
       return {
-        g, nome: dayName(sch, g),
+        g, nome: dayName(sch, g), attrezzatura: [...((sch.attrezzatura || {})[g] || [])],
         esercizi: exs.map((e) => ({ id: e.id, nome: e.nome, key: e.illustrazione, serie: e.serie, reps: rangeTxt(e), recupero: e.recupero || '', tipoCarico: e.tipoCarico || 'machine', ss: links.has(e.id) })),
       };
     }),
@@ -100,6 +104,7 @@ function fromDraft(d, old, S) {
     id, nome: `${titolo} - ${d.giorni.map((x) => clean(x.nome) || `Giorno ${x.g}`).join(' / ')}`,
     inizio: start, fine: old && old.inizio === start && old.fine && Math.round((Date.parse(old.fine) - Date.parse(start)) / 6048e5) === d.settimane ? old.fine : addDays(start, d.settimane * 7 - 1),
     giorni: d.giorni.map((x) => x.g), settimane,
+    attrezzatura: Object.fromEntries(d.giorni.filter((x) => (x.attrezzatura || []).length).map((x) => [x.g, x.attrezzatura])),
     seduteSvolte: Array.from({ length: nCol }, (_, i) => (old?.seduteSvolte || [])[i] || []),
     esercizi,
   };
@@ -181,7 +186,8 @@ export function renderSchedaEdit(id, ctx) {
     <label>Settimane<input type="number" id="sSet" min="1" max="26" inputmode="numeric" value="${d.settimane}"></label></div>`;
   d.giorni.forEach((day, gi) => {
     h += `<div class="section-title row" style="align-items:center"><span class="grow">Giornata ${day.g}</span>${d.giorni.length > 1 ? `<button class="btn small ghost" data-delday="${gi}">Elimina giornata</button>` : ''}</div>
-      <div class="card ed-day"><label class="ed-name">Nome<input data-dname="${gi}" value="${esc(day.nome)}" maxlength="40"></label>`;
+      <div class="card ed-day"><label class="ed-name">Nome<input data-dname="${gi}" value="${esc(day.nome)}" maxlength="40"></label>
+      <div class="ed-name">Attrezzatura da portare<div class="chips pick gear-pick">${[...ATTREZZI.map(([k]) => k), ...(day.attrezzatura || []).filter((k) => !ATTREZZI_LABEL[k])].map((k) => `<button type="button" data-gear="${gi}:${esc(k)}" class="${(day.attrezzatura || []).includes(k) ? 'on' : ''}" aria-pressed="${(day.attrezzatura || []).includes(k)}">${esc(ATTREZZI_LABEL[k] || k)}</button>`).join('')}<button type="button" data-gearnew="${gi}">+ Altro</button></div></div>`;
     if (!day.esercizi.length) h += `<div class="muted small" style="padding:6px 0">Nessun esercizio: aggiungine uno dalla lista.</div>`;
     day.esercizi.forEach((x, xi) => {
       const cat = catItem(S, x.key);
@@ -210,6 +216,20 @@ export function renderSchedaEdit(id, ctx) {
   document.getElementById('sIni').onchange = (ev) => { if (ev.target.value) d.inizio = ev.target.value; };
   document.getElementById('sSet').onchange = (ev) => { d.settimane = num(ev.target.value, 1, 26, d.settimane); ev.target.value = d.settimane; };
   $app.querySelectorAll('[data-dname]').forEach((i) => { i.oninput = () => { d.giorni[+i.dataset.dname].nome = i.value; }; });
+  $app.querySelectorAll('[data-gear]').forEach((b) => {
+    b.onclick = () => {
+      const [gi, k] = [+b.dataset.gear.split(':')[0], b.dataset.gear.slice(b.dataset.gear.indexOf(':') + 1)];
+      const day = d.giorni[gi]; const l = day.attrezzatura || (day.attrezzatura = []);
+      if (l.includes(k)) l.splice(l.indexOf(k), 1); else l.push(k);
+      b.classList.toggle('on', l.includes(k)); b.setAttribute('aria-pressed', l.includes(k));
+    };
+  });
+  $app.querySelectorAll('[data-gearnew]').forEach((b) => {
+    b.onclick = () => {
+      const t = clean(prompt('Attrezzatura da aggiungere (es. Cintura per dip)') || '').slice(0, 30); if (!t) return;
+      const day = d.giorni[+b.dataset.gearnew]; day.attrezzatura = [...new Set([...(day.attrezzatura || []), t])]; renderSchedaEdit(id, ctx);
+    };
+  });
   $app.querySelectorAll('.ed-ex').forEach((row) => {
     const x = d.giorni[+row.dataset.g].esercizi[+row.dataset.x];
     row.querySelectorAll('[data-f]').forEach((i) => {
@@ -232,7 +252,7 @@ export function renderSchedaEdit(id, ctx) {
   $app.querySelectorAll('[data-add]').forEach((b) => { b.onclick = () => { picker = { gi: +b.dataset.add, q: '', create: false }; renderSchedaEdit(id, ctx); window.scrollTo(0, 0); }; });
   $app.querySelectorAll('[data-delday]').forEach((b) => { b.onclick = () => { const gi = +b.dataset.delday; if (d.giorni[gi].esercizi.length && !confirm(`Eliminare la giornata ${d.giorni[gi].g} con i suoi esercizi?`)) return; d.giorni.splice(gi, 1); renderSchedaEdit(id, ctx); }; });
   const ad = document.getElementById('addDay');
-  if (ad) ad.onclick = () => { const g = LETTERS.find((l) => !d.giorni.some((x) => x.g === l)); d.giorni.push({ g, nome: `Giorno ${g}`, esercizi: [] }); renderSchedaEdit(id, ctx); };
+  if (ad) ad.onclick = () => { const g = LETTERS.find((l) => !d.giorni.some((x) => x.g === l)); d.giorni.push({ g, nome: `Giorno ${g}`, esercizi: [], attrezzatura: [] }); renderSchedaEdit(id, ctx); };
   document.getElementById('sSave').onclick = () => {
     if (!d.giorni.some((x) => x.esercizi.length)) { toast('Aggiungi almeno un esercizio'); return; }
     const bad = d.giorni.flatMap((x) => x.esercizi).find((x) => !parseReps(x.reps));

@@ -81,8 +81,8 @@ const ok = (m) => console.log('  ✓', m);
     await go('#/giorno/A'); await p.click('#start'); await p.waitForTimeout(200);
     await p.click('#doneSet');
     await p.click('.set[data-i="0"] [data-act=done]'); // annulla
-    const curAfterUndo = await p.$eval('#doneSet', (e) => e.textContent);
-    /Serie 1/.test(curAfterUndo) ? ok('annullare una serie funziona') : bad('annullare serie: ' + curAfterUndo);
+    const curAfterUndo = await p.$eval('#doneSet', (e) => e.closest('.set').dataset.i);
+    curAfterUndo === '0' ? ok('annullare una serie funziona') : bad('annullare serie: ' + curAfterUndo);
     await p.click('#doneSet'); await p.waitForTimeout(80);
     (await p.$eval('#skip', (e) => e.textContent)) === 'Prossimo esercizio' ? ok('link «Prossimo esercizio»') : bad('link: ' + await p.$eval('#skip', (e) => e.textContent));
     const nm0 = await p.$eval('.ex-head h2', (e) => e.textContent);
@@ -95,16 +95,16 @@ const ok = (m) => console.log('  ✓', m);
     await p.click('[data-i="3"]'); await p.waitForTimeout(150);
     await p.reload(); await p.waitForTimeout(300);
     const after = await p.$eval('.top-title span', (e) => e.textContent);
-    /4\/6/.test(after) ? ok('ricarica a metà: riprende dallo stesso esercizio') : bad('ricarica: ' + after);
+    /4 di 6/.test(after) ? ok('ricarica a metà: riprende dallo stesso esercizio') : bad('ricarica: ' + after);
     // carico vuoto
     await p.fill('.set.cur [data-f=load]', ''); await p.click('#doneSet');
     const toast = await p.$eval('#toast', (e) => e.textContent); /carico/.test(toast) ? ok('carico vuoto bloccato') : bad('carico vuoto non segnalato');
     await p.fill('.set.cur [data-f=load]', '12,5'); await p.fill('.set.cur [data-f=reps]', '9'); await p.click('#doneSet');
-    (await p.$('#doneSet .ring')) && (await p.$('#restClock')) && !(await p.$('#timer')) ? ok('recupero sul pulsante della serie, niente popup') : bad('recupero: niente conto sul pulsante o popup ancora presente');
+    (await p.$('#mainSlot .ring')) && (await p.$('#restClock')) && !(await p.$('#timer')) ? ok('recupero sul pulsante della serie, niente popup') : bad('recupero: niente conto sul pulsante o popup ancora presente');
     await p.click('#restAdj [data-t="+15"]'); await p.click('#restAdj [data-t="-15"]');
-    const off = await p.$eval('#doneSet .ring path', (e) => +e.style.strokeDashoffset); (off > 0 && off <= 100) ? ok('bordo del recupero si riempie') : bad('bordo del recupero: ' + off);
-    const before = await p.$eval('#doneSet', (e) => e.textContent); await p.click('#doneSet'); await p.waitForTimeout(80);
-    (await p.$$eval('.set.done', (x) => x.length)) >= 2 ? ok('durante il recupero si può segnare la serie dopo (' + before.trim().split('Recupero')[0].trim() + ')') : bad('recupero blocca la serie successiva');
+    const off = await p.$eval('#mainSlot .ring path', (e) => +e.style.strokeDashoffset); (off > 0 && off <= 100) ? ok('bordo del recupero si riempie') : bad('bordo del recupero: ' + off);
+    const before = await p.$eval('#mainSlot', (e) => e.textContent); await p.click('#doneSet'); await p.waitForTimeout(80);
+    (await p.$$eval('.set.done', (x) => x.length)) >= 2 ? ok('durante il recupero si può segnare la serie dopo (' + before.trim().replace(/\s+/g, ' ') + ')') : bad('recupero blocca la serie successiva');
     const v = await p.$eval('.set[data-i="0"] [data-f=load]', (e) => e.value); v === '12.5' || v === '12,5' ? ok('virgola decimale accettata') : bad('virgola: ' + v);
     await go(''); const resume = await p.$('.resume'); resume ? ok('home: banner Riprendi') : bad('manca banner Riprendi');
     // nuova sessione mentre una è aperta (dialog accettato)
