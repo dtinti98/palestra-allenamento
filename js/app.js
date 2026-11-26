@@ -80,7 +80,6 @@ function thumbHTML(ex, label) {
 }
 
 function bodyweight(dateISO) {
-  if (S.settings.bw) return S.settings.bw;
   const all = [...DATA.pesate, ...(S.pesate || [])].filter((x) => x.data <= (dateISO || '9999')).sort((a, b) => (a.data < b.data ? -1 : 1));
   if (!all.length) return 64;
   // come nel diario: media delle pesate della settimana (da lunedì); se non ce ne sono, le ultime 4
@@ -425,7 +424,7 @@ function renderSession() {
       <button class="tick" data-act="done" aria-label="Serie ${i + 1} fatta"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></div>`;
   });
   h += `</div>`;
-  if (isBw) h += `<div class="bw-info">Peso corporeo usato: <b>${fmt(sess.pesoCorporeo)} kg</b>. Nel diario il carico è peso corporeo + zavorra (si cambia da Storico → Impostazioni ed export).</div>`;
+  if (isBw) h += `<div class="bw-info">Peso corporeo usato: <b>${fmt(sess.pesoCorporeo)} kg</b>. Il carico è peso corporeo + zavorra (senza zavorra, solo peso corporeo). Il peso viene dalle pesate di questa settimana.</div>`;
 
   const allDone = curSet === -1;
   const last = sess.idx === exs.length - 1;
@@ -1046,11 +1045,9 @@ function historyListHTML() {
 function settingsHTML() {
   const theme = S.settings.theme || 'auto';
   let h = `<div class="section-title" style="margin-top:0">Impostazioni</div><div class="card settings">
-    <label>Peso corporeo per trazioni e dip (kg)<input type="number" step="0.05" inputmode="decimal" id="bw" value="${S.settings.bw ?? ''}" placeholder="${fmt(bodyweight(todayISO()))}"></label>
     <label>Data di nascita<input type="date" id="nascita" value="${S.settings.nascita ?? ''}" max="${todayISO()}"></label>
     <label>Altezza (cm)<input type="number" step="1" inputmode="numeric" id="altezza" value="${S.settings.altezza ?? ''}" placeholder="es. 175"></label>
-    <label>Tema<select id="theme"><option value="auto" ${theme === 'auto' ? 'selected' : ''}>Automatico</option><option value="light" ${theme === 'light' ? 'selected' : ''}>Chiaro</option><option value="dark" ${theme === 'dark' ? 'selected' : ''}>Scuro</option></select></label>
-    <div class="muted" style="font-size:13px">Se lasci vuoto il peso corporeo uso la media delle ultime pesate.</div></div>`;
+    <label>Tema<select id="theme"><option value="auto" ${theme === 'auto' ? 'selected' : ''}>Automatico</option><option value="light" ${theme === 'light' ? 'selected' : ''}>Chiaro</option><option value="dark" ${theme === 'dark' ? 'selected' : ''}>Scuro</option></select></label></div>`;
   h += exportHTML();
   return h;
 }
@@ -1068,7 +1065,6 @@ function bindHistoryList() {
   });
 }
 function bindSettings() {
-  document.getElementById('bw').onchange = (ev) => { S.settings.bw = parseNum(ev.target.value); save(); };
   document.getElementById('nascita').onchange = (ev) => { const v = ev.target.value; S.settings.nascita = /^\d{4}-\d{2}-\d{2}$/.test(v) && v > '1920' ? v : null; save(); };
   document.getElementById('altezza').onchange = (ev) => { const v = parseNum(ev.target.value); S.settings.altezza = v && v > 100 && v < 230 ? v : null; if (v != null && !S.settings.altezza) { toast('Altezza non valida'); ev.target.value = ''; } save(); };
   document.getElementById('theme').onchange = (ev) => { S.settings.theme = ev.target.value; save(); applyTheme(); };
