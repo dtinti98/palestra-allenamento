@@ -164,7 +164,7 @@ function loadText(ex, h) {
 function lastLine(ex, exclude) {
   const h = history(ex, { exclude });
   const l = h[h.length - 1];
-  return l ? `Sett. ${l.settimana}: ${loadText(ex, l)} × ${repsText(l, ex.serie)}` : 'Nessun carico registrato';
+  return l ? `Sett. ${l.settimana}: ${loadText(ex, l)} · ${repsText(l, ex.serie)}` : 'Nessun carico registrato';
 }
 
 // doppia progressione: tutte le serie in cima al range -> segnalarlo (decide il PT di quanto salire)
@@ -178,7 +178,7 @@ function atTop(ex, h) {
 // ---------------------------------------------------------------- shell
 const view = { anim: null };
 function setTop(title, subtitle = '', back = null) {
-  document.body.classList.remove('masthead');
+  document.body.classList.remove('masthead', 'day-page', 'ed-page');
   document.getElementById('title').textContent = title;
   document.getElementById('subtitle').textContent = subtitle;
   const b = document.getElementById('back');
@@ -284,7 +284,7 @@ function renderHome() {
     h += `<section class="next-box"><div class="kick">Settimana completata</div><h2>Tutte le ${sch.giorni.length} sedute fatte</h2><div class="m">Puoi rifare una giornata o fare un allenamento libero.</div></section>`;
   }
   // giornate della settimana
-  h += `<div class="sec"><span>Questa settimana</span><a href="#/schede">Gestisci le schede</a></div><div class="days">`;
+  h += `<div class="home-sec"><span>Questa settimana</span><a href="#/schede">Gestisci le schede</a></div><div class="days">`;
   for (const g of sch.giorni) {
     const n = sch.esercizi.filter((e) => e.giorno === g);
     const series = n.reduce((a, e) => a + e.serie, 0);
@@ -330,27 +330,31 @@ function renderDay(g) {
   const cur = S.current && S.sessions.find((s) => s.id === S.current);
   // la giornata già iniziata si riapre e basta
   if (cur && !cur.libero && cur.scheda === sch.id && cur.giorno === g) { location.hash = '#/sessione'; return; }
-  setTop(`Giorno ${g} · ${dayName(sch, g)}`, `${exs.length} esercizi`, '#/');
+  const nSerie = exs.reduce((a, e) => a + e.serie, 0);
+  setTop(`Giornata ${g}`, `Settimana ${week} · ${exs.length} esercizi · ${nSerie} serie`, '#/');
   setTab('home');
+  document.body.classList.add('day-page');
   const links = ssLinks(sch.id, g, exs);
   let h = cur ? switchBannerHTML(cur, `il giorno ${g}`) : '';
+  h += `<h1 class="pg-title">${esc(dayName(sch, g))}</h1>`;
+  const gear = gearFor(sch, g);
+  if (gear.length) h += `<div class="gear-blk"><div class="gearlbl">Porta con te</div><div class="gear">${gear.map((x) => `<span>${esc(x)}</span>`).join('')}</div></div>`;
   h += `<div class="ex-list">`;
   exs.forEach((e, i) => {
-    const lib = libFor(e);
     if (i > 0) {
       const on = links.has(exs[i - 1].id);
       h += `<button class="ss-link${on ? ' on' : ''}" data-ss="${i - 1}" aria-pressed="${on}">${on ? '⛓ In superserie · tocca per separare' : '+ Superserie con il precedente'}</button>`;
     }
-    h += `<a class="card ex-item${links.has(e.id) || (i > 0 && links.has(exs[i - 1].id)) ? ' in-ss' : ''}" href="#/esercizio/${esc(e.illustrazione)}?from=${encodeURIComponent(e.id)}">
+    h += `<a class="ex-item${links.has(e.id) || (i > 0 && links.has(exs[i - 1].id)) ? ' in-ss' : ''}" href="#/esercizio/${esc(e.illustrazione)}?from=${encodeURIComponent(e.id)}">
       <div class="thumb paper">${thumbHTML(e)}</div>
-      <div class="grow"><h3>${i + 1}. ${esc(e.nome)}</h3>
-      <div class="sub">${e.serie} × ${e.range ? (e.range[0] === e.range[1] ? e.range[0] : e.range.join('–')) : e.reps} · rec. ${esc(e.recupero || fmtRest(restSeconds(null, e.range)))}</div>
+      <div class="grow"><h3><span class="n">${i + 1}</span>${esc(e.nome)}</h3>
+      <div class="sub">${e.serie} × ${esc(rangeTxt(e))} · rec. ${esc(e.recupero || fmtRest(restSeconds(null, e.range)))}</div>
       <div class="last">${esc(lastLine(e))}</div></div></a>`;
   });
   h += `</div>`;
-  const opts = sch.settimane.map((d, i) => d ? `<option value="${i + 1}" ${i + 1 === week ? 'selected' : ''}>Settimana ${i + 1} (dal ${dShort(d)})</option>` : '').join('');
-  h += `<div class="card settings" style="margin-top:14px"><label>Registra nella <select id="week">${opts}</select></label></div>`;
-  h += `<div class="sticky-cta"><button class="btn primary block" id="start">Inizia allenamento · giorno ${g}</button></div>`;
+  const opts = sch.settimane.map((d, i) => d ? `<option value="${i + 1}" ${i + 1 === week ? 'selected' : ''}>settimana ${i + 1}</option>` : '').join('');
+  h += `<div class="day-foot"><button class="btn primary block" id="start">Inizia giornata ${g}</button>
+    <div class="opt"><label class="wk-pick">Registra nella <select id="week" aria-label="Settimana in cui registrare">${opts}</select></label><a href="#/scheda/${sch.id}">Modifica giornata</a></div></div>`;
   $app.innerHTML = h;
   document.getElementById('start').onclick = () => startSession(sch, g, +document.getElementById('week').value);
   bindSwitchBanner(() => startSession(sch, g, +document.getElementById('week').value));
@@ -817,15 +821,19 @@ function renderSummary() {
   if (!sch) { location.hash = '#/'; return; }
   document.body.classList.add('in-session');
   stopAnim();
-  setTop('Riepilogo allenamento', sess.libero ? `Allenamento libero · ${dShort(sess.data)}` : `Giorno ${sess.giorno} · settimana ${sess.settimana}`, '#/sessione');
+  setTop('Riepilogo', sess.libero ? `Allenamento libero · ${dShort(sess.data)}` : `Giornata ${sess.giorno} · settimana ${sess.settimana}`, '#/sessione');
   const { t, n } = tonnage(sess);
   const mins = Math.round((Date.now() - sess.inizio) / 60000);
   const txt = sessionText(sess);
-  let h = `<div class="stat-row"><div class="card stat"><b>${n}</b><span>serie fatte</span></div><div class="card stat"><b>${fmt(t, 0)}</b><span>kg di tonnellaggio</span></div><div class="card stat"><b>${mins}′</b><span>durata</span></div></div>`;
-  h += `<div class="section-title">Da incollare nella chat del diario</div><textarea class="export" id="txt" readonly>${esc(txt)}</textarea>`;
-  h += `<div style="display:grid;gap:10px;margin-top:12px"><button class="btn" id="copy">Copia il testo</button>`;
-  if (navigator.share) h += `<button class="btn" id="share">Condividi…</button>`;
-  h += `<button class="btn primary" id="close">Salva e chiudi l'allenamento</button><button class="btn ghost" id="resume">Torna all'allenamento</button></div>`;
+  const ora = (ms) => new Date(ms).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  const giorno = new Date(sess.data + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+  const du = mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60}′` : `${mins}′`;
+  let h = `<h1 class="pg-title">Allenamento finito</h1><div class="done-k">${giorno.charAt(0).toUpperCase() + giorno.slice(1)}${sess.inizio && mins < 600 ? `, ${ora(sess.inizio)} → ${ora(Date.now())}` : ''}</div>`;
+  h += `<div class="stat3"><div><b class="num">${n}</b><small>serie fatte</small></div><div><b class="num">${Math.round(t).toLocaleString('it-IT', { useGrouping: 'always' })}</b><small>kg tonnellaggio</small></div><div><b class="num">${du}</b><small>durata</small></div></div>`;
+  h += secH('Esercizi', `<button class="lk" id="copy">Copia per il diario</button>`);
+  h += `<table class="sum num">${sessRows(sess).map((r) => `<tr class="${r.skip ? 'sk' : ''}"><td>${esc(r.nome)}</td><td>${esc(r.val)}</td></tr>`).join('')}</table>`;
+  h += `<details class="more-tbl"><summary>Testo per il diario</summary><textarea class="export" id="txt" readonly>${esc(txt)}</textarea></details>`;
+  h += `<div class="acts"><button class="btn primary block" id="close">Salva e chiudi</button><div class="lks"><button class="lk" id="resume">Torna all'allenamento</button>${navigator.share ? '<button class="lk" id="share">Condividi…</button>' : ''}</div></div>`;
   $app.innerHTML = h;
   document.getElementById('copy').onclick = async () => {
     try { await navigator.clipboard.writeText(txt); toast('Testo copiato'); } catch (e) { const ta = document.getElementById('txt'); ta.select(); document.execCommand('copy'); toast('Testo copiato'); }
@@ -861,8 +869,11 @@ function renderLibrary() {
   const T = (k) => (LIB[k] || CUS[k]).title;
   const keys = [...Object.keys(LIB), ...Object.keys(CUS)].sort((a, b) => lastSch(b) - lastSch(a) || T(a).localeCompare(T(b), 'it'));
   const groups = ['tutti', 'petto', 'dorso', 'deltoidi', 'bicipiti', 'tricipiti', 'glutei', 'femorali', 'quadricipiti', 'polpacci', 'addome', 'trapezi'];
-  let h = `<input class="search" id="q" type="search" placeholder="Cerca un esercizio" value="${esc(libQuery)}">`;
-  h += `<div class="filters">${groups.map((g) => `<button data-g="${g}" aria-pressed="${g === libFilter}">${g === 'tutti' ? 'Tutti' : esc(MUSCLES[g])}</button>`).join('')}</div><div class="grid" id="grid"></div>`;
+  document.body.classList.add('masthead');
+  const curId = hasScheda() ? schedaFor(todayISO()).id : null;
+  let h = `<header class="mast"><div class="kick">${keys.length} movimenti</div><h1>Esercizi</h1></header>`;
+  h += `<input class="search" id="q" type="search" placeholder="Cerca un esercizio" value="${esc(libQuery)}">`;
+  h += `<div class="filters">${groups.map((g) => `<button data-g="${g}" aria-pressed="${g === libFilter}">${g === 'tutti' ? 'Tutti' : g === 'deltoidi' ? 'Spalle' : esc(MUSCLES[g])}</button>`).join('')}</div><div class="grid" id="grid"></div>`;
   $app.innerHTML = h;
   const draw = () => {
     const q = libQuery.trim().toLowerCase();
@@ -875,7 +886,8 @@ function renderLibrary() {
     });
     document.getElementById('grid').innerHTML = list.map((k) => {
       const L = LIB[k] || CUS[k];
-      const sch = [...new Set((used.get(k) || []).map((x) => x.s.id))].map((i) => `Scheda ${i}`).join(', ');
+      const ids = [...new Set((used.get(k) || []).map((x) => x.s.id))];
+      const sch = ids.includes(curId) ? '<i>in scheda</i>' : ids.length ? esc(ids.map((i) => `scheda ${i}`).join(', ')) : '';
       return `<a class="card tile" href="#/esercizio/${k}"><div class="paper">${LIB[k] ? figureSVG(L, 1, { ghost: true, label: L.title }) : bodyMapSVG(L.primary, L.secondary || [])}</div><h3>${esc(L.title)}</h3><div class="sub">${esc(L.primary.map((m) => MUSCLES[m]).join(', '))}${sch ? ` · ${sch}` : ''}</div></a>`;
     }).join('') || '<div class="empty">Nessun esercizio trovato</div>';
   };
@@ -957,8 +969,11 @@ function renderExercise(key, from) {
 
 // ---------------------------------------------------------------- STORICO E PROGRESSI
 const SUBS = [['riepilogo', 'Riepilogo'], ['peso', 'Peso'], ['forza', 'Forza'], ['volume', 'Volume'], ['allenamenti', 'Allenamenti'], ['impostazioni', 'Impostazioni ed export']];
-const SCH_COL = { 1: '#5b8bb5', 2: 'var(--accent)' };
-const PAL = ['#e2492f', '#3f86c6', '#2f9a62', '#c08414', '#8a5cc2', '#cf4f8f'];
+const SCH_COL = { 1: '#b3a593', 2: 'var(--accent)', 3: '#b07a2a', 4: '#8a9a8e', 5: 'var(--text)' };
+const PAL = ['var(--text)', 'var(--accent)', '#b07a2a', '#8a9a8e', '#7a6d5e', '#c98a63'];
+const GEAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+// intestazione di sezione a rivista, con eventuale contenuto a destra
+const secH = (t, right = '') => `<div class="sec-h"><h3>${t}</h3>${right ? `<div class="r">${right}</div>` : ''}</div>`;
 let storicoScheda = null, pesoRange = 60, esSel = null, misuraKey = 'vita';
 
 // campi delle misure, con la colonna del foglio «Peso e misure» del diario
@@ -1022,11 +1037,10 @@ function pesataForm(st) {
   const last = st.pesate[st.pesate.length - 1];
   const today = todayISO();
   const oggi = st.pesate.find((p) => p.data === today);
-  return `<div class="card weigh" id="weigh"><div class="row" style="align-items:flex-start"><div class="grow"><h3>Pesata del giorno</h3>
-    <div class="muted" style="font-size:13px">${oggi ? `Oggi hai già ${fmt(oggi.peso)} kg${oggi.fonte === 'diario' ? ' (dal diario)' : ''}: salvando la sostituisci.` : last ? `Ultima: ${fmt(last.peso)} kg il ${dShort(last.data)}` : ''}</div></div>
-    <input type="date" id="wdate" value="${today}" max="${today}" aria-label="Data della pesata"></div>
-    <div class="ss-row weigh-row"><button data-w="-" aria-label="Meno 0,1 kg">−</button><div class="ss-num"><b><input id="wkg" inputmode="decimal" value="${fmt(oggi ? oggi.peso : last ? last.peso : 64)}" aria-label="Peso in kg"></b><small>kg</small></div><button class="plus" data-w="+" aria-label="Più 0,1 kg">+</button></div>
-    <button class="btn primary block" id="wsave">Salva pesata</button></div>`;
+  const nota = oggi ? `già ${fmt(oggi.peso)} kg${oggi.fonte === 'diario' ? ' dal diario' : ''}: salvando la sostituisci` : last ? `ultima ${fmt(last.peso)} kg il ${dShort(last.data)}` : '';
+  return `<div class="weigh" id="weigh"><div class="w-lb"><b>Pesata di oggi</b><input type="date" id="wdate" value="${today}" max="${today}" aria-label="Data della pesata"><small>${nota}</small></div>
+    <button class="pm" data-w="-" aria-label="Meno 0,1 kg">−</button><input class="w-v num" id="wkg" inputmode="decimal" value="${fmt(oggi ? oggi.peso : last ? last.peso : 64)}" aria-label="Peso in kg"><button class="pm" data-w="+" aria-label="Più 0,1 kg">+</button>
+    <button class="btn primary sv" id="wsave">Salva</button></div>`;
 }
 function bindPesata() {
   const el = document.getElementById('weigh'); if (!el) return;
@@ -1047,87 +1061,77 @@ function renderHistory(sub = 'riepilogo') {
   if (!subs.some(([k]) => k === sub)) sub = subs[0][0];
   setTop('Storico', 'Progressi calcolati sul telefono');
   setTab('storico');
+  document.body.classList.add('masthead');
   const today = todayISO();
   const st = makeStats(DATA, S, today);
   const curSch = hasScheda() ? schedaFor(today).id : null;
   if (storicoScheda == null) storicoScheda = curSch;
-  let h = `<div class="segs" role="tablist">${subs.map(([k, l]) => `<a href="#/storico/${k}" role="tab" aria-selected="${k === sub}">${l}</a>`).join('')}</div>`;
+  let h = `<header class="mast"><div class="kick">Calcolato sul telefono</div><h1>Storico</h1></header>`;
+  h += `<nav class="segs stabs" role="tablist">${subs.map(([k, l]) => `<a href="#/storico/${k}" role="tab" aria-selected="${k === sub}"${k === 'impostazioni' ? ` class="gear-tab" aria-label="${l}" title="${l}"` : ''}>${k === 'impostazioni' ? GEAR_SVG : l}</a>`).join('')}</nav>`;
   const schSel = () => `<div class="sch-sel">${DATA.schede.map((x) => `<button data-sch="${x.id}" aria-pressed="${x.id === storicoScheda}">Scheda ${x.id}</button>`).join('')}</div>`;
+  const pesoChart = (ps) => lineChart({ series: [
+    { name: 'pesate', color: 'var(--muted-2)', width: 1.1, r: 2, dotFill: 'var(--muted-2)', points: ps.map((p) => ({ x: Date.parse(p.data), y: p.peso, tip: `${dShort(p.data)}: ${fmt(p.peso)} kg${p.fonte === 'app' ? ' (app)' : ''}` })), endLabel: false },
+    { name: 'media 7 giorni', color: 'var(--accent)', dots: false, width: 2.5, points: ps.map((p) => ({ x: Date.parse(p.data), y: p.media7, tip: `${dShort(p.data)}: media ${fmt(p.media7, 2)} kg` })) },
+  ], xLabels: xDates(ps.map((p) => p.data)), yFmt: (v) => fmt(v, 1), endLabel: false });
 
   if (sub === 'riepilogo') {
-    const kp = st.kpiPeso, fz = st.forza, tk = st.tonnKpi;
-    h += `<p class="lead">${st.tendenza != null ? `Il peso ${st.tendenza >= 0 ? 'sale' : 'scende'} di <b>${fmt(Math.abs(st.tendenza), 2)} kg a settimana</b>.` : ''}
-      ${fz ? ` Nella scheda ${fz.scheda} la somma dei massimali stimati è <b>${fmt(fz.tot, 1)} kg</b>, ${pct(fz.delta)} dalla prima settimana completa.` : ''}</p>`;
-    h += `<div class="kpis">`;
-    h += kpiCard('Peso medio, ultima settimana', kp ? fmt(kp.peso, 2) : '–', ' kg', kp ? `<span class="${tone(kp.delta)}">${sign(kp.delta, 2)} kg</span> sulla settimana prima · sett. ${kp.globale}` : '');
-    h += kpiCard('Tendenza del peso', st.tendenza != null ? sign(st.tendenza, 2) : '–', ' kg/sett.', 'retta su tutte le pesate');
-    h += kpiCard('Forza stimata', fz ? fmt(fz.tot, 1) : '–', ' kg', fz ? `<span class="${tone(fz.delta)}">${pct(fz.delta)}</span> nella scheda ${fz.scheda} · sett. ${fz.globale}` : 'serve una settimana completa');
-    h += kpiCard('Tonnellaggio, ultima sett. completa', tk ? fmt(tk.tonn, 0) : '–', ' kg', tk ? `<span class="${tone(tk.delta)}">${pct(tk.delta)}</span> sulla precedente · sett. ${tk.globale}` : '');
-    h += `</div>`;
+    const kp = st.kpiPeso, fz = st.forza;
+    h += `<p class="lead">${st.tendenza != null ? `Il peso ${st.tendenza >= 0 ? 'sale' : 'scende'} di <em>${fmt(Math.abs(st.tendenza), 2)} kg</em> a settimana.` : ''}
+      ${fz ? ` La forza stimata della scheda ${fz.scheda} è <em>${pct(fz.delta)}</em> dalla prima settimana completa.` : ''}</p>`;
+    h += `<div class="stat3"><div><b class="num">${kp ? fmt(kp.peso, 1) : '–'}</b><small>kg media sett.</small></div><div><b class="num">${st.tendenza != null ? sign(st.tendenza, 2) : '–'}</b><small>kg a settimana</small></div><div><b class="num">${fz ? fmt(fz.tot, 1) : '–'}</b><small>kg forza stimata</small></div></div>`;
+    const last = st.pesate.filter((p) => Date.parse(p.data) >= Date.parse(today) - 60 * 864e5);
+    h += `<div class="chart-card">${secH('Peso, ultimi 60 giorni', '<a href="#/storico/peso">Dettagli</a>')}${pesoChart(last.length > 1 ? last : st.pesate.slice(-30))}</div>`;
     h += pesataForm(st);
-    const last = st.pesate.slice(-30);
-    h += `<div class="card chart-card"><h3>Peso, ultimi 30 giorni</h3>${lineChart({ series: [
-      { name: 'Pesata', color: 'var(--muted)', width: 1.2, r: 2.6, points: last.map((p) => ({ x: Date.parse(p.data), y: p.peso, tip: `${dShort(p.data)}: ${fmt(p.peso)} kg` })), endLabel: false },
-      { name: 'Media 7 giorni', color: 'var(--accent)', dots: false, width: 2.6, points: last.map((p) => ({ x: Date.parse(p.data), y: p.media7, tip: `${dShort(p.data)}: media ${fmt(p.media7, 2)} kg` })) },
-    ], xLabels: xDates(last.map((p) => p.data)), yFmt: (v) => fmt(v, 1) })}</div>`;
   }
 
   if (sub === 'peso') {
     h += pesataForm(st);
     const ps = pesoRange ? st.pesate.filter((p) => Date.parse(p.data) >= Date.parse(today) - pesoRange * 864e5) : st.pesate;
-    h += `<div class="card chart-card"><div class="row"><h3 class="grow">Peso giornaliero e media a 7 giorni</h3></div>
-      <div class="sch-sel">${[[30, '30 g'], [60, '60 g'], [0, 'Tutto']].map(([v, l]) => `<button data-range="${v}" aria-pressed="${v === pesoRange}">${l}</button>`).join('')}</div>
-      ${lineChart({ series: [
-        { name: 'Pesata', color: 'var(--muted)', width: 1.2, r: 2.4, points: ps.map((p) => ({ x: Date.parse(p.data), y: p.peso, tip: `${dShort(p.data)}: ${fmt(p.peso)} kg${p.fonte === 'app' ? ' (app)' : ''}` })), endLabel: false },
-        { name: 'Media 7 giorni', color: 'var(--accent)', dots: false, width: 2.6, points: ps.map((p) => ({ x: Date.parse(p.data), y: p.media7, tip: `${dShort(p.data)}: media ${fmt(p.media7, 2)} kg` })) },
-      ], xLabels: xDates(ps.map((p) => p.data)), yFmt: (v) => fmt(v, 1) })}</div>`;
+    h += `<div class="chart-card">${secH('Peso giornaliero', [[30, '30 g'], [60, '60 g'], [0, 'Tutto']].map(([v, l]) => `<button class="rng" data-range="${v}" aria-pressed="${v === pesoRange}">${l}</button>`).join(''))}${pesoChart(ps)}</div>`;
     const pw = st.pesoSett;
-    h += `<div class="card chart-card"><h3>Peso medio per settimana</h3><div class="muted small">Media delle pesate di ogni settimana (da lunedì). Le settimane con poche pesate sono meno affidabili.</div>
-      ${lineChart({ series: [{ name: 'Peso medio', color: 'var(--accent)', area: true, points: pw.map((w) => ({ x: w.globale, y: w.peso, hollow: w.n < 3, tip: `Sett. ${w.globale} (dal ${dShort(w.dal)}): ${fmt(w.peso, 2)} kg · ${w.n} pesate` })) }],
-        xLabels: pw.filter((w, i) => i % Math.ceil(pw.length / 6) === 0 || i === pw.length - 1).map((w) => ({ x: w.globale, label: `S${w.globale}` })), yFmt: (v) => fmt(v, 1) })}</div>`;
-    h += `<div class="section-title">Misure e composizione corporea</div>`;
-    h += misuraForm();
-    {
-      const c = st.composizione;
-      const alt = S.settings.altezza;
-      const lastPeso = st.kpiPeso ? st.kpiPeso.peso : null;
-      const cards = [];
-      const eta = etaAl(S.settings.nascita);
-      if (alt && lastPeso) cards.push(kpiCard('BMI', fmt(lastPeso / (alt / 100) ** 2, 1), '', `altezza ${fmt(alt, 0)} cm · peso medio ultima sett.`));
-      if (eta != null) cards.push(kpiCard('Età', String(eta), ' anni', `data di nascita ${dShort(S.settings.nascita)}/${S.settings.nascita.slice(0, 4)}`));
-      const lm = st.misure.filter((m) => m.massa_muscolare != null).pop();
-      if (lm) cards.push(kpiCard('Massa muscolare', fmt(lm.massa_muscolare, 1), ' kg', c && c.muscolare != null ? `<span class="${tone(c.muscolare)}">${sign(c.muscolare, 1)} kg</span> dalla prima misura` : `misurata il ${dShort(lm.data)}`));
-      if (c) {
-        if (c.peso != null) cards.push(kpiCard('Peso', sign(c.peso, 1), ' kg', `dal ${dShort(c.dal)}`));
-        if (c.magra != null) cards.push(kpiCard('Massa magra', sign(c.magra, 2), ' kg', `dal ${dShort(c.dal)}`));
-        if (c.grassa != null) cards.push(kpiCard('Massa grassa', sign(c.grassa, 2), ' kg', `dal ${dShort(c.dal)}`));
-        if (c.vita != null) cards.push(kpiCard('Vita', sign(c.vita, 1), ' cm', `dal ${dShort(c.dal)}`));
-        if (c.braccio != null) cards.push(kpiCard('Bicipite', sign(c.braccio, 1), ' cm', `dal ${dShort(c.dal)}`));
-      }
-      if (!alt || !S.settings.nascita) cards.push(`<div class="card kpi"><span class="kpi-l">${!alt ? 'BMI' : 'Età'}</span><span class="kpi-s">Inserisci ${!alt && !S.settings.nascita ? 'altezza e data di nascita' : !alt ? 'l\'altezza' : 'la data di nascita'} in Storico → Impostazioni ed export.</span></div>`);
-      if (cards.length) h += `<div class="kpis">${cards.join('')}</div>`;
-      if (c) h += `<div class="muted small" style="margin:6px 2px 10px">Variazioni dalla prima all'ultima misurazione. La bioimpedenza varia con idratazione e orario: leggila come tendenza.</div>`;
-    }
-    if (st.misure.length) {
-      const keys = [...MISURE.map((m) => m[0]), ...MISURE_CALC.map((m) => m[0])].filter((k) => k !== 'peso' && st.misure.some((m) => m[k] != null));
+    h += `<div class="chart-card">${secH('Media per settimana')}
+      ${lineChart({ series: [{ name: 'Peso medio', color: 'var(--text)', width: 2, r: 3.2, dotFill: 'var(--text)', points: pw.map((w) => ({ x: w.globale, y: w.peso, hollow: w.n < 3, tip: `Sett. ${w.globale} (dal ${dShort(w.dal)}): ${fmt(w.peso, 2)} kg · ${w.n} pesate` })) }],
+        xLabels: pw.filter((w, i) => i % Math.ceil(pw.length / 6) === 0 || i === pw.length - 1).map((w) => ({ x: w.globale, label: `S${w.globale}` })), yFmt: (v) => fmt(v, 1), endLabel: false })}
+      <p class="fine">Media delle pesate di ogni settimana (da lunedì). Il cerchio vuoto segna le settimane con meno di tre pesate.</p></div>`;
+    // dall'inizio: prima e ultima misura di ogni voce
+    const M = st.misure;
+    if (M.length) {
+      const voci = [['peso', 'Peso', 'kg', 1, 1], ['massa_magra', 'Massa magra', 'kg', 2, 1], ['massa_grassa', 'Massa grassa', 'kg', 2, 0], ['grasso_pct', 'Grasso', '%', 1, 0], ['vita', 'Vita', 'cm', 1, 0], ['braccio', 'Bicipite', 'cm', 1, 1]];
+      const righe = voci.map(([k, l, u, d, good]) => { const v = M.filter((m) => m[k] != null); return v.length ? { l, u, d, good, a: v[0][k], z: v[v.length - 1][k] } : null; }).filter(Boolean);
+      const keys = [...MISURE.map((m) => m[0]), ...MISURE_CALC.map((m) => m[0])].filter((k) => k !== 'peso' && M.some((m) => m[k] != null));
       if (!keys.includes(misuraKey)) misuraKey = keys[0];
+      const dLungo = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
+      h += secH(`Dall'inizio, ${dLungo(M[0].data)}`, keys.length ? `<select id="mkey" class="sel-link" aria-label="Andamento di una misura">${keys.map((k) => `<option value="${k}" ${k === misuraKey ? 'selected' : ''}>${misuraLabel(k)}</option>`).join('')}</select>` : '');
+      if (righe.length) h += `<table class="tbl dall num"><tr><th></th><th>${dShort(M[0].data).replace(/^0/, '')}</th><th>${dShort(M[M.length - 1].data).replace(/^0/, '')}</th><th>Var.</th></tr>${righe.map((r) => { const dv = r.z - r.a; return `<tr><td>${r.l}</td><td>${fmt(r.a, r.d)}${r.u === '%' ? '%' : ''}</td><td>${fmt(r.z, r.d)}${r.u === '%' ? '%' : ''}</td><td class="${r.good && dv > 0 ? 'up' : ''}">${sign(dv, r.d)}${r.u === '%' ? '' : ' ' + r.u}</td></tr>`; }).join('')}</table>`;
       if (misuraKey) {
-        const pts = st.misure.filter((m) => m[misuraKey] != null);
-        h += `<div class="card chart-card"><div class="row"><h3 class="grow">Andamento</h3><select id="mkey" aria-label="Misura">${keys.map((k) => `<option value="${k}" ${k === misuraKey ? 'selected' : ''}>${misuraLabel(k)}</option>`).join('')}</select></div>
-          ${lineChart({ series: [{ name: misuraLabel(misuraKey), color: 'var(--accent)', width: 2.4, r: 3.4, points: pts.map((m) => ({ x: Date.parse(m.data), y: m[misuraKey], tip: `${dShort(m.data)}: ${fmt(m[misuraKey], misuraKey === 'basale' ? 0 : 2)} ${misuraUnit(misuraKey)}${m.fonte === 'app' ? ' (app)' : ''}` })) }],
-            xLabels: xDates(pts.map((m) => m.data)), yFmt: (v) => fmt(v, misuraKey === 'basale' ? 0 : 1), legend: false })}
-          ${pts.length < 2 ? '<div class="muted small">Serve almeno un\'altra misurazione per vedere l\'andamento.</div>' : ''}</div>`;
+        const pts = M.filter((m) => m[misuraKey] != null);
+        h += `<div class="chart-card mis-chart"><div class="mis-l">Andamento · ${esc(misuraLabel(misuraKey))}</div>${lineChart({ series: [{ name: misuraLabel(misuraKey), color: 'var(--text)', width: 2, r: 3.2, points: pts.map((m) => ({ x: Date.parse(m.data), y: m[misuraKey], tip: `${dShort(m.data)}: ${fmt(m[misuraKey], misuraKey === 'basale' ? 0 : 2)} ${misuraUnit(misuraKey)}${m.fonte === 'app' ? ' (app)' : ''}` })) }],
+          xLabels: xDates(pts.map((m) => m.data)), yFmt: (v) => fmt(v, misuraKey === 'basale' ? 0 : 1), legend: false })}${pts.length < 2 ? '<p class="fine">Serve almeno un\'altra misurazione per vedere l\'andamento.</p>' : ''}</div>`;
       }
+    }
+    {
+      const alt = S.settings.altezza, lastPeso = st.kpiPeso ? st.kpiPeso.peso : null, eta = etaAl(S.settings.nascita);
+      const lm = st.misure.filter((m) => m.massa_muscolare != null).pop();
+      const bits = [];
+      if (alt && lastPeso) bits.push(`BMI ${fmt(lastPeso / (alt / 100) ** 2, 1)}`);
+      if (eta != null) bits.push(`${eta} anni`);
+      if (lm) bits.push(`massa muscolare ${fmt(lm.massa_muscolare, 1)} kg (${dShort(lm.data)})`);
+      let t = bits.length ? bits.join(' · ') + '. ' : '';
+      if (!alt || !S.settings.nascita) t += `Per BMI ed età inserisci ${!alt && !S.settings.nascita ? 'altezza e data di nascita' : !alt ? 'l\'altezza' : 'la data di nascita'} nelle impostazioni (⚙). `;
+      if (M.length) t += 'La bioimpedenza varia con idratazione e orario: leggila come tendenza.';
+      if (t) h += `<p class="fine">${t}</p>`;
+    }
+    h += misuraForm();
+    if (M.length) {
       const cols = [['peso', 'Peso'], ['grasso_pct', 'BF %'], ['massa_magra', 'Magra'], ['massa_grassa', 'Grassa'], ['massa_muscolare', 'Muscol.'], ['viscerale', 'Visc. %'], ['vita', 'Vita'], ['fianchi', 'Glutei'], ['torace', 'Torace'], ['braccio', 'Bicip.'], ['coscia', 'Coscia'], ['basale', 'Basale']]
-        .filter(([k]) => st.misure.some((m) => m[k] != null));
-      h += `<div class="card table-wrap"><table class="tbl num"><tr><th>Data</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}<th></th></tr>
-        ${st.misure.slice().reverse().map((m) => `<tr><td>${dShort(m.data)}${m.fonte === 'app' ? '' : '<br><small class="muted">diario</small>'}</td>${cols.map(([k]) => `<td>${m[k] == null ? '–' : fmt(m[k], k === 'basale' ? 0 : k === 'massa_magra' || k === 'massa_grassa' ? 2 : 1)}</td>`).join('')}
-          <td>${m.fonte === 'app' ? `<button class="btn small ghost" data-delm="${m.data}" aria-label="Elimina misurazione">✕</button>` : ''}</td></tr>`).join('')}</table></div>`;
+        .filter(([k]) => M.some((m) => m[k] != null));
+      h += secH('Tutte le misurazioni') + `<div class="table-wrap"><table class="tbl num"><tr><th>Data</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}<th></th></tr>
+        ${M.slice().reverse().map((m) => `<tr><td>${dShort(m.data)}${m.fonte === 'app' ? '' : '<br><small class="muted">diario</small>'}</td>${cols.map(([k]) => `<td>${m[k] == null ? '–' : fmt(m[k], k === 'basale' ? 0 : k === 'massa_magra' || k === 'massa_grassa' ? 2 : 1)}</td>`).join('')}
+          <td>${m.fonte === 'app' ? `<button class="x" data-delm="${m.data}" aria-label="Elimina misurazione">✕</button>` : ''}</td></tr>`).join('')}</table></div>`;
     }
     const mine = (S.pesate || []).slice().sort((a, b) => (a.data < b.data ? 1 : -1));
     if (mine.length) {
-      h += `<div class="section-title">Pesate inserite nell'app</div><div class="card" style="padding:6px 14px">${mine.map((p) => `<div class="row li"><span class="grow">${dLong(p.data)}</span><b class="num">${fmt(p.peso)} kg</b><button class="btn small ghost" data-delw="${p.data}" aria-label="Elimina">✕</button></div>`).join('')}</div>
-        <button class="btn block" id="copyw" style="margin-top:10px">Copia le pesate per il diario</button>`;
+      h += secH('Pesate inserite nell\'app', '<button class="lk" id="copyw">Copia per il diario</button>') + `<div class="rows">${mine.map((p) => `<div class="li"><span class="grow">${dLong(p.data)}</span><b class="num">${fmt(p.peso)} kg</b><button class="x" data-delw="${p.data}" aria-label="Elimina">✕</button></div>`).join('')}</div>`;
     }
   }
 
@@ -1136,55 +1140,67 @@ function renderHistory(sub = 'riepilogo') {
     h += schSel();
     const ms = st.massimali.filter((m) => m.scheda === sch.id);
     const bases = [...new Set(ms.map((m) => m.base))];
-    h += `<div class="card chart-card"><h3>Massimali stimati degli esercizi di riferimento</h3><div class="muted small">1RM stimato in kg (Epley: carico × (1 + rip./30)), solo settimane complete. Sono limiti inferiori, non massimali testati.</div>
-      ${ms.length ? lineChart({ series: bases.map((b, i) => ({ name: b, color: PAL[i % PAL.length], points: ms.filter((m) => m.base === b).map((m) => ({ x: m.globale, y: m.e1rm, tip: `${b} · sett. ${m.globale}: ${fmt(m.e1rm, 1)} kg` })) })),
-        xLabels: [...new Set(ms.map((m) => m.globale))].map((g) => ({ x: g, label: `S${g}` })), yFmt: (v) => fmt(v, 0) }) : '<div class="chart-empty">Ancora nessuna settimana completa in questa scheda.</div>'}</div>`;
-    const exs = sch.esercizi.filter((e) => st.carichi.some((c) => c.id === e.id));
-    if (!esSel || !exs.some((e) => e.id === esSel)) esSel = (exs.find((e) => e.riferimento) || exs[0])?.id;
-    if (exs.length) {
-      const rows = st.carichi.filter((c) => c.id === esSel).sort((a, b) => a.settimana - b.settimana);
-      h += `<div class="card chart-card"><h3>Andamento di un esercizio</h3><select id="essel" class="sel">${exs.map((e) => `<option value="${e.id}" ${e.id === esSel ? 'selected' : ''}>${esc(e.giorno)} · ${esc(e.nome)}</option>`).join('')}</select>
-        ${lineChart({ series: [{ name: 'Carico', color: 'var(--accent)', points: rows.map((r) => ({ x: r.globale, y: r.carico, hollow: r.piu, label: r.repsFatte != null ? `×${fmt(r.repsFatte, 1)}` : '', tip: `Sett. ${r.globale}: ${fmt(r.carico)} kg × ${fmt(r.reps, 2)}${r.piu ? ' · «+»' : ''}${r.fonte === 'app' ? ' (app)' : ''}` })) }],
-          xLabels: rows.map((r) => ({ x: r.globale, label: `S${r.globale}` })), yFmt: (v) => fmt(v, 1) })}
-        <div class="muted small">Sotto il punto le ripetizioni medie per serie, se registrate. Il cerchio vuoto segna i carichi «+».</div></div>`;
+    h += `<div class="chart-card">${secH('Massimali stimati')}<p class="fine">1RM stimato con Epley, carico × (1 + rip./30). Solo settimane complete: sono limiti inferiori, non massimali testati.</p>
+      ${ms.length ? lineChart({ series: bases.map((b, i) => ({ name: b, color: PAL[i % PAL.length], width: 2.2, r: 3, dotFill: PAL[i % PAL.length], points: ms.filter((m) => m.base === b).map((m) => ({ x: m.globale, y: m.e1rm, tip: `${b} · sett. ${m.globale}: ${fmt(m.e1rm, 1)} kg` })) })),
+        xLabels: [...new Set(ms.map((m) => m.globale))].map((g) => ({ x: g, label: `S${g}` })), yFmt: (v) => fmt(v, 0), endLabel: false }) : '<div class="chart-empty">Ancora nessuna settimana completa in questa scheda.</div>'}</div>`;
+    // andamento di un movimento attraverso tutte le schede
+    const mov = (c) => { const r = exById(c.id); return r ? r.ex.illustrazione || c.id : c.id; };
+    const movs = new Map(); // key -> {label, scheda}
+    for (const x of DATA.schede) for (const e of x.esercizi) if (st.carichi.some((c) => c.id === e.id)) { const k = e.illustrazione || e.id; const o = movs.get(k); if (!o || x.id === sch.id || (o.scheda !== sch.id && x.id > o.scheda)) movs.set(k, { label: `${e.giorno} · ${e.nome}`, scheda: x.id, rif: e.riferimento, giorno: e.giorno }); }
+    const inSch = [...movs.entries()].filter(([, v]) => v.scheda === sch.id).sort((a, b) => a[1].label.localeCompare(b[1].label, 'it'));
+    const nPts = (k) => st.carichi.filter((c) => mov(c) === k).length;
+    if (!esSel || !movs.has(esSel)) esSel = (inSch.filter(([, v]) => v.rif).sort((a, b) => nPts(b[0]) - nPts(a[0]))[0] || inSch[0] || [...movs.entries()][0] || [])[0];
+    if (esSel) {
+      const rows = st.carichi.filter((c) => mov(c) === esSel).sort((a, b) => a.globale - b.globale);
+      const schIds = [...new Set(rows.map((r) => r.scheda))];
+      const markers = schIds.slice(1).map((id) => { const i = rows.findIndex((r) => r.scheda === id); return { x: (rows[i - 1].globale + rows[i].globale) / 2, left: `Scheda ${rows[i - 1].scheda}`, right: `Scheda ${id}` }; });
+      const step = Math.ceil(rows.length / 4);
+      h += `<div class="chart-card">${secH('Andamento di un esercizio')}
+        <div class="es-pick"><select id="essel" class="sel-link big" aria-label="Esercizio">${[...movs.entries()].sort((a, b) => (b[1].scheda === sch.id) - (a[1].scheda === sch.id) || a[1].label.localeCompare(b[1].label, 'it')).map(([k, v]) => `<option value="${esc(k)}" ${k === esSel ? 'selected' : ''}>${esc(v.label)}${v.scheda !== sch.id ? ` (scheda ${v.scheda})` : ''}</option>`).join('')}</select><span>${schIds.length > 1 ? 'tutte le schede' : `scheda ${schIds[0] || sch.id}`}</span></div>
+        ${lineChart({ series: [
+          { name: 'carico (kg)', color: 'var(--text)', width: 2.2, r: 3.6, points: rows.map((r) => ({ x: r.globale, y: r.carico, hollow: true, label: r.repsFatte != null || r.reps != null ? fmt(r.repsFatte ?? r.reps, 2) : '', tip: `Sett. ${r.globale} (scheda ${r.scheda}, S${r.settimana}): ${fmt(r.carico)} kg × ${fmt(r.reps, 2)}${r.piu ? ' · «+»' : ''}${r.fonte === 'app' ? ' (app)' : ''}` })) },
+          { name: '1RM stimato', color: 'var(--accent)', width: 1.8, dash: '5 4', dots: false, points: rows.map((r) => ({ x: r.globale, y: Math.round(r.carico * (1 + (r.repsFatte ?? r.reps ?? 0) / 30) * 10) / 10, tip: `Sett. ${r.globale}: 1RM stimato ${fmt(r.carico * (1 + (r.repsFatte ?? r.reps ?? 0) / 30), 1)} kg` })) },
+        ], markers, labelRow: 'rip.', height: 220, xLabels: rows.filter((r, i) => i % step === 0 || i === rows.length - 1).map((r) => ({ x: r.globale, label: dShort(r.data).replace(/^0/, '').replace('/0', '/') })), yFmt: (v) => fmt(v, 0), endLabel: false })}
+        <p class="fine">Sotto ogni punto le ripetizioni medie per serie. Tocca un punto per il dettaglio della settimana.${movs.get(esSel) && /zavorr|trazion|dip/i.test(movs.get(esSel).label) ? ' Il carico comprende il peso corporeo.' : ''}</p></div>`;
     }
-    h += `<div class="section-title">Carichi registrati (kg)</div><div class="muted small" style="margin:-4px 2px 8px">«40 × 9,7» = carico × ripetizioni medie. In grassetto i carichi «+». Trazioni e dip: peso corporeo + zavorra.</div>`;
+    h += secH('Carichi registrati', '<span class="muted">kg × ripetizioni medie</span>');
     const weeks = [...new Set(st.carichi.filter((c) => c.scheda === sch.id).map((c) => c.settimana))].sort((a, b) => a - b);
     for (const g of sch.giorni) {
       const list = sch.esercizi.filter((e) => e.giorno === g);
-      h += `<div class="card table-wrap" style="margin-bottom:10px"><table class="tbl num loads"><tr><th class="sticky">Giorno ${g}</th>${weeks.map((w) => `<th>S${w}</th>`).join('')}<th>Var.</th></tr>`;
+      h += `<h4 class="tbl-h">Giornata ${g} · ${esc(dayName(sch, g))}</h4><div class="table-wrap"><table class="tbl num loads"><tr><th class="sticky">Esercizio</th>${weeks.map((w) => `<th>S${w}</th>`).join('')}<th>Var.</th></tr>`;
       for (const e of list) {
         const rs = st.carichi.filter((c) => c.id === e.id);
         const vals = weeks.map((w) => rs.find((r) => r.settimana === w));
         const got = vals.filter(Boolean);
         const v = got.length > 1 ? (got[got.length - 1].carico - got[0].carico) / got[0].carico : null;
-        h += `<tr><td class="sticky">${esc(e.nome)}</td>${vals.map((r) => `<td class="${r && r.piu ? 'b' : ''}">${r ? `${fmt(r.carico)}${r.repsFatte != null ? `<small> × ${fmt(r.repsFatte, 1)}</small>` : ''}` : ''}</td>`).join('')}<td class="${tone(v)}">${v == null ? '' : pct(v)}</td></tr>`;
+        h += `<tr><td class="sticky">${esc(e.nome)}</td>${vals.map((r) => `<td class="${r && r.piu ? 'b' : ''}">${r ? `${fmt(r.carico)}${r.repsFatte != null ? `<small>×${fmt(r.repsFatte, 2)}</small>` : ''}` : ''}</td>`).join('')}<td class="${tone(v)}">${v == null ? '' : pct(v)}</td></tr>`;
       }
       h += `</table></div>`;
     }
+    h += `<p class="fine">In grassetto i carichi «+». Trazioni e dip: peso corporeo + zavorra.</p>`;
   }
 
   if (sub === 'volume') {
-    const ws = st.settimane.filter((s) => s.tonn > 0).sort((a, b) => a.globale - b.globale);
-    h += `<div class="card chart-card"><h3>Tonnellaggio per settimana</h3><div class="muted small">Serie × ripetizioni × carico. Il colore distingue la scheda; le barre chiare sono settimane incomplete. Fra schede diverse il volume non è confrontabile.</div>
-      ${barChart({ bars: ws.map((s) => ({ label: `S${s.globale}`, segs: [{ v: s.tonn, color: SCH_COL[s.scheda] || 'var(--accent)', light: !s.completa, tip: `Sett. ${s.globale} (scheda ${s.scheda}): ${fmt(s.tonn, 0)} kg · ${s.sedute}/${s.previsti} sedute${s.completa ? '' : ' · incompleta'}` }] })),
-        yFmt: (v) => (v >= 1000 ? `${fmt(v / 1000, 0)}k` : fmt(v, 0)), labelEvery: Math.ceil(ws.length / 8) })}
-      <div class="chart-legend">${DATA.schede.map((x) => `<span><i style="background:${SCH_COL[x.id]}"></i>Scheda ${x.id}</span>`).join('')}</div></div>`;
-    h += schSel();
+    const ws = st.settimane.filter((x) => x.tonn > 0).sort((a, b) => a.globale - b.globale);
+    h += `<div class="chart-card">${secH('Tonnellaggio per settimana')}<p class="fine">Serie × ripetizioni × carico. Più chiare le settimane incomplete. Tra schede diverse il volume non è confrontabile.</p>
+      ${barChart({ bars: ws.map((x) => ({ label: `S${x.globale}`, segs: [{ v: x.tonn, color: SCH_COL[x.scheda] || 'var(--accent)', light: !x.completa, tip: `Sett. ${x.globale} (scheda ${x.scheda}): ${fmt(x.tonn, 0)} kg · ${x.sedute}/${x.previsti} sedute${x.completa ? '' : ' · incompleta'}` }] })),
+        yFmt: (v) => (v >= 1000 ? `${fmt(v / 1000, 0)}k` : fmt(v, 0)), labelEvery: Math.ceil(ws.length / 6) })}
+      <div class="chart-legend">${DATA.schede.map((x) => `<span><i style="background:${SCH_COL[x.id] || 'var(--accent)'}"></i>Scheda ${x.id}</span>`).join('')}</div></div>`;
     const gs = st.gruppiSintesi(storicoScheda);
-    h += `<div class="card chart-card"><h3>Tonnellaggio per gruppo muscolare</h3><div class="muted small">${gs.first ? `Prima (S${st.gw(DATA.schede.find((x) => x.id === storicoScheda).settimane[gs.first - 1])}) e ultima (S${st.gw(DATA.schede.find((x) => x.id === storicoScheda).settimane[gs.last - 1])}) settimana completa della scheda.` : 'Nessuna settimana completa in questa scheda.'} Ogni esercizio conta nel gruppo che lavora di più.</div>
+    const sw = (n) => st.gw(DATA.schede.find((x) => x.id === storicoScheda).settimane[n - 1]);
+    h += `<div class="chart-card">${secH('Per gruppo muscolare', schSel())}<p class="fine">${gs.first ? `Prima (S${sw(gs.first)}) e ultima (S${sw(gs.last)}) settimana completa.` : 'Nessuna settimana completa in questa scheda.'} Ogni esercizio conta nel gruppo che lavora di più.</p>
       ${pairBars(gs.rows.filter((r) => r.prima || r.ultima).sort((a, b) => b.ultima - a.ultima).map((r) => ({ nome: r.gruppo, prima: r.prima, ultima: r.ultima, delta: r.variazione, tipA: `${r.gruppo}, prima settimana: ${fmt(r.prima, 0)} kg`, tipB: `${r.gruppo}, ultima settimana: ${fmt(r.ultima, 0)} kg` })))}
-      <div class="chart-legend"><span><i style="background:var(--muted);opacity:.5"></i>prima</span><span><i style="background:var(--accent)"></i>ultima</span></div></div>`;
-    h += `<div class="card table-wrap"><table class="tbl num"><tr><th>Gruppo</th><th>Esercizi</th><th>Serie/sett.</th><th>Prima</th><th>Ultima</th><th>Var.</th></tr>
-      ${gs.rows.sort((a, b) => b.serie - a.serie).map((r) => `<tr><td>${esc(r.gruppo)}</td><td>${r.esercizi}</td><td>${r.serie}</td><td>${fmt(r.prima, 0)}</td><td>${fmt(r.ultima, 0)}</td><td class="${tone(r.variazione)}">${pct(r.variazione)}</td></tr>`).join('')}</table></div>`;
-    h += `<div class="section-title">Settimane</div><div class="card table-wrap"><table class="tbl num"><tr><th>Sett.</th><th>Dal</th><th>Sedute</th><th>Serie</th><th>Tonn.</th><th>Peso</th></tr>
-      ${st.sett.slice().reverse().map((s) => `<tr class="${s.completa ? '' : 'dim'}"><td>S${s.globale}</td><td>${dShort(s.dal)}</td><td>${s.sedute}/${s.previsti}</td><td>${s.serie}</td><td>${fmt(s.tonn, 0)}</td><td>${fmt(s.peso, 2)}</td></tr>`).join('')}</table></div>`;    if (st.liberiSett.length) {
-      h += `<div class="section-title">Allenamenti liberi</div><div class="muted small" style="margin:-4px 0 8px">Fuori scheda: tonnellaggio a parte, non entra nei confronti tra settimane della scheda.</div>
-        <div class="card table-wrap"><table class="tbl num"><tr><th>Sett.</th><th>Dal</th><th>Sedute</th><th>Serie</th><th>Tonn.</th></tr>
-        ${st.liberiSett.slice().reverse().map((s) => `<tr><td>S${s.globale}</td><td>${dShort(s.dal)}</td><td>${s.sedute}</td><td>${s.serie}</td><td>${fmt(s.tonn, 0)}</td></tr>`).join('')}</table></div>`;
+      <div class="chart-legend"><span><i style="background:var(--muted-3)"></i>prima</span><span><i style="background:var(--accent)"></i>ultima</span></div></div>`;
+    h += `<details class="more-tbl"><summary>Serie per gruppo muscolare</summary><div class="table-wrap"><table class="tbl num"><tr><th>Gruppo</th><th>Esercizi</th><th>Serie/sett.</th><th>Prima</th><th>Ultima</th><th>Var.</th></tr>
+      ${gs.rows.sort((a, b) => b.serie - a.serie).map((r) => `<tr><td>${esc(r.gruppo)}</td><td>${r.esercizi}</td><td>${r.serie}</td><td>${fmt(r.prima, 0)}</td><td>${fmt(r.ultima, 0)}</td><td class="${tone(r.variazione)}">${pct(r.variazione)}</td></tr>`).join('')}</table></div></details>`;
+    h += secH('Settimane') + `<div class="table-wrap"><table class="tbl num"><tr><th>Sett.</th><th>Dal</th><th>Sedute</th><th>Serie</th><th>Tonn.</th><th>Peso</th></tr>
+      ${st.sett.slice().reverse().map((x) => `<tr class="${x.completa ? '' : 'dim'}"><td>S${x.globale}</td><td>${dShort(x.dal)}</td><td>${x.sedute}/${x.previsti}</td><td>${x.serie}</td><td>${fmt(x.tonn, 0)}</td><td>${fmt(x.peso, 2)}</td></tr>`).join('')}</table></div>`;
+    if (st.liberiSett.length) {
+      h += secH('Allenamenti liberi') + `<p class="fine">Fuori scheda: tonnellaggio a parte, non entra nei confronti tra settimane della scheda.</p>
+        <div class="table-wrap"><table class="tbl num"><tr><th>Sett.</th><th>Dal</th><th>Sedute</th><th>Serie</th><th>Tonn.</th></tr>
+        ${st.liberiSett.slice().reverse().map((x) => `<tr><td>S${x.globale}</td><td>${dShort(x.dal)}</td><td>${x.sedute}</td><td>${x.serie}</td><td>${fmt(x.tonn, 0)}</td></tr>`).join('')}</table></div>`;
     }
   }
-
 
   if (sub === 'allenamenti') h += historyListHTML();
   if (sub === 'impostazioni') h += settingsHTML();
@@ -1213,27 +1229,44 @@ function xDates(dates) {
   return out;
 }
 
+// righe esercizio di una seduta: nome, carico × ripetizioni, saltato
+function sessRows(sess) {
+  const sch = sessSch(sess); if (!sch) return [];
+  return sch.esercizi.filter((e) => e.giorno === sess.giorno).map((e) => {
+    const r = sess.esercizi[e.id];
+    const done = r && !r.saltato ? r.serie.filter((x) => x.fatto) : [];
+    if (!done.length) return { nome: e.nome, val: r && r.saltato ? 'saltato' : 'non fatto', skip: true };
+    const reps = done.map((x) => fmt(x.reps)).join('/');
+    if (e.tipoCarico === 'bw') { const z = [...new Set(done.map((x) => x.zavorra || 0))]; return { nome: e.nome, val: `${z.length === 1 && !z[0] ? 'corpo libero' : `+${z.map((v) => fmt(v)).join('-')} kg`} × ${reps}` }; }
+    const loads = [...new Set(done.map((x) => x.carico))];
+    return { nome: e.nome, val: loads.length === 1 ? `${fmt(loads[0])} × ${reps}` : done.map((x) => `${fmt(x.carico)}×${fmt(x.reps)}`).join(', ') };
+  });
+}
+const durata = (sess) => { const m = sess.fine && sess.inizio ? Math.round((sess.fine - sess.inizio) / 60000) : null; return m && m > 0 && m < 600 ? (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60}′` : `${m}′`) : ''; };
 function historyListHTML() {
   const list = S.sessions.filter((s) => s.chiusa || s.id === S.current).slice().reverse();
   let h = '';
-  if (!list.length) h += `<div class="card empty">Ancora nessun allenamento registrato qui.<br>Lo storico del diario lo trovi nelle altre sezioni e nella scheda di ogni esercizio.</div>`;
+  if (!list.length) h += `<div class="empty">Ancora nessun allenamento registrato qui.<br>Lo storico del diario lo trovi nelle altre sezioni e nella scheda di ogni esercizio.</div>`;
   for (const s of list) {
-    const { t, n } = tonnage(s);
-    const lines = sessionText(s).split('\n').slice(1);
-    h += `<div class="card hist-session" style="margin-bottom:10px"><div class="row"><div class="grow"><h3>${s.libero ? 'Allenamento libero' : `Giorno ${esc(s.giorno)}`} · ${dLong(s.data)}${s.id === S.current ? ' · in corso' : ''}</h3>
-      <div class="muted" style="font-size:13px">${s.libero ? 'Fuori scheda' : `Scheda ${s.scheda}, settimana ${s.settimana}`} · ${n} serie · ${fmt(t, 0)} kg</div></div>
-      <button class="btn small ghost" data-copy="${s.id}">Copia</button><button class="btn small ghost" data-del="${s.id}" aria-label="Elimina">✕</button></div>
-      <ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></div>`;
+    const { t } = tonnage(s);
+    const rows = sessRows(s), du = durata(s);
+    const fatti = rows.filter((r) => !r.skip).length;
+    h += `<div class="hist-session"><div class="hs-h"><h3>${s.libero ? 'Allenamento libero' : `Giornata ${esc(s.giorno)}`} · ${dWeek(s.data)} ${new Date(s.data + 'T12:00:00').toLocaleDateString('it-IT', { month: 'short' })}${s.id === S.current ? ' · in corso' : ''}</h3>
+      <button class="lk" data-copy="${s.id}">Copia</button><button class="x" data-del="${s.id}" aria-label="Elimina">✕</button></div>
+      <div class="hs-m">${s.libero ? 'Fuori scheda' : `Settimana ${s.settimana}`} · ${fatti} esercizi${du ? ` · ${du}` : ''} · ${fmt(t, 0)} kg</div>
+      <ul>${rows.map((r) => `<li class="${r.skip ? 'sk' : ''}"><span>${esc(r.nome)}</span><span>${esc(r.val)}</span></li>`).join('')}</ul></div>`;
   }
+  if (list.length) h += `<p class="fine">Sedute registrate con l'app, dalla più recente.</p>`;
   return h;
 }
 function settingsHTML() {
   const theme = S.settings.theme || 'auto';
-  let h = `<div class="section-title" style="margin-top:0">Impostazioni</div><div class="card settings">
+  let h = exportHTML();
+  h += secH('Impostazioni') + `<div class="settings set-rows">
     <label>Data di nascita<input type="date" id="nascita" value="${S.settings.nascita ?? ''}" max="${todayISO()}"></label>
     <label>Altezza (cm)<input type="number" step="1" inputmode="numeric" id="altezza" value="${S.settings.altezza ?? ''}" placeholder="es. 175"></label>
     <label>Tema<select id="theme"><option value="auto" ${theme === 'auto' ? 'selected' : ''}>Automatico</option><option value="light" ${theme === 'light' ? 'selected' : ''}>Chiaro</option><option value="dark" ${theme === 'dark' ? 'selected' : ''}>Scuro</option></select></label></div>`;
-  h += exportHTML();
+  h += backupHTML();
   return h;
 }
 function bindHistoryList() {
@@ -1376,21 +1409,24 @@ let expPer = 'settimana';
 
 function exportHTML() {
   const ws = exportWeeks();
-  let h = `<div class="section-title">Export per Claude</div><div class="card settings">`;
+  let h = secH('Export per Claude') + `<div class="settings exp-box">`;
   if (!ws.length) h += `<div class="muted" style="font-size:14px">Quando registri allenamenti, pesate o misure nell'app, qui puoi esportarli in un file da darmi in chat per aggiornare diario e dashboard.</div>`;
   else {
     h += `<div class="segs" id="expp" role="group" aria-label="Periodo">${PERIODI.map(([v, t]) => `<button data-per="${v}" aria-pressed="${v === expPer}">${t}</button>`).join('')}</div>
       <label id="expwl"${expPer === 'totale' ? ' hidden' : ''}>${{ settimana: 'Settimana', mese: 'Mese', scheda: 'Scheda', totale: '' }[expPer]}<select id="expw">${exportOptions(expPer).map((o) => `<option value="${o.v}">${o.t}</option>`).join('')}</select></label>
       ${expPer === 'totale' ? `<div style="font-size:14px">${exportOptions('totale')[0].t}</div>` : ''}
-      <div class="muted" style="font-size:13px">Il file contiene allenamenti e pesate del periodo, divisi per settimana, con le celle del diario da aggiornare. Caricalo nella chat del progetto e io aggiorno diario e dashboard.</div>
-      <div style="display:grid;gap:8px"><button class="btn primary" id="expShare">Esporta</button><button class="btn" id="expCopy">Copia il testo</button></div>`;
+      <p class="fine">Allenamenti e pesate del periodo, divisi per settimana, con le celle del diario da aggiornare. Caricalo nella chat del progetto.</p>
+      <button class="btn primary block" id="expShare">Esporta</button><button class="lk" id="expCopy">Copia il testo</button>`;
   }
-  h += `</div><div class="section-title">Backup e ripristino</div><div style="display:grid;gap:10px">
-    <button class="btn" id="exp">Esporta tutto (backup completo)</button>
-    <label class="btn ghost" style="cursor:pointer">Importa un file (export o backup)<input type="file" id="imp" accept="application/json,.json" hidden></label>
-    <div class="muted" style="font-size:13px">L'import di un backup carica il diario (scheda, carichi, pesate e misure) e aggiunge allenamenti, pesate e misure dell'app che mancano, senza cancellare niente.</div>
-    <button class="btn ghost" id="wipe" style="color:var(--accent)">Cancella tutti i dati da questo telefono</button></div>`;
+  h += `</div>`;
   return h;
+}
+function backupHTML() {
+  return secH('Backup e ripristino') + `<div class="bk-box">
+    <button class="btn" id="exp">Esporta tutto (backup completo)</button>
+    <label class="btn" style="cursor:pointer">Importa un file (export o backup)<input type="file" id="imp" accept="application/json,.json" hidden></label>
+    <p class="fine">L'import di un backup carica il diario (scheda, carichi, pesate e misure) e aggiunge allenamenti, pesate e misure dell'app che mancano, senza cancellare niente.</p>
+    <button class="lk danger" id="wipe">Cancella tutti i dati da questo telefono</button></div>`;
 }
 
 async function deliverFile(name, obj) {

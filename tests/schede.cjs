@@ -61,6 +61,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
     await overflow('elenco schede');
     await go('#/scheda/1'); await p.waitForTimeout(200);
     const n1 = await p.$$eval('.ed-ex', (x) => x.length);
+    await p.click('.ed-ex[data-g="0"][data-x="0"] summary'); // la riga si apre al tocco
     await p.fill('.ed-ex[data-g="0"][data-x="0"] [data-f="serie"]', '5');
     await p.click('#sSave'); await p.waitForTimeout(250);
     const s2 = await st(); const sc1 = s2.diario.schede.find((x) => x.id === 1);

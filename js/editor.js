@@ -5,6 +5,8 @@ import { LIB, MUSCLES } from './exercises.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const LETTERS = 'ABCDEFGHIJ'.split('');
+// esercizi aperti nell'editor (righe compatte che si aprono al tocco)
+let openEx = new WeakSet();
 // attrezzatura da portare, scelta per giornata
 export const ATTREZZI = [['cintura', 'Cintura'], ['fasce', 'Fasce'], ['straps', 'Straps'], ['cintura_zavorra', 'Cintura zavorra'], ['ginocchiere', 'Ginocchiere'],
   ['gomitiere', 'Gomitiere'], ['magnesite', 'Magnesite'], ['guanti', 'Guanti'], ['elastici', 'Elastici'], ['cavigliere', 'Cavigliere'], ['scarpe_squat', 'Scarpe da squat'], ['asciugamano', 'Asciugamano']];
@@ -174,25 +176,30 @@ export function renderSchedaEdit(id, ctx) {
   setTop(key === 'nuova' ? 'Nuova scheda' : `Modifica scheda ${key}`, 'Le modifiche valgono quando premi Salva', '#/schede');
   setTab('home');
   if (picker) return renderPicker(ctx);
+  document.body.classList.add('ed-page');
 
   const d = draft;
   let h = '';
   if (d._importata) {
     h += `<div class="card imp-ok"><b>Scheda importata da ${esc(d._importata)}</b><div class="small">Controlla giornate ed esercizi, poi premi «Salva la scheda».</div>${d._avvisi.length ? `<ul class="small">${d._avvisi.slice(0, 12).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>`;
   }
-  h += `<div class="card settings">
+  h += `<div class="settings set-rows ed-head">
     <label>Nome<input id="sTit" value="${esc(d.titolo)}" maxlength="60"></label>
     <label>Inizio (lunedì)<input type="date" id="sIni" value="${d.inizio}"></label>
     <label>Settimane<input type="number" id="sSet" min="1" max="26" inputmode="numeric" value="${d.settimane}"></label></div>`;
+  const loadLbl = (v) => ((TIPI_CARICO.find(([k]) => k === v) || [])[1] || '').toLowerCase();
   d.giorni.forEach((day, gi) => {
-    h += `<div class="section-title row" style="align-items:center"><span class="grow">Giornata ${day.g}</span>${d.giorni.length > 1 ? `<button class="btn small ghost" data-delday="${gi}">Elimina giornata</button>` : ''}</div>
-      <div class="card ed-day"><label class="ed-name">Nome<input data-dname="${gi}" value="${esc(day.nome)}" maxlength="40"></label>
-      <div class="ed-name">Attrezzatura da portare<div class="chips pick gear-pick">${[...ATTREZZI.map(([k]) => k), ...(day.attrezzatura || []).filter((k) => !ATTREZZI_LABEL[k])].map((k) => `<button type="button" data-gear="${gi}:${esc(k)}" class="${(day.attrezzatura || []).includes(k) ? 'on' : ''}" aria-pressed="${(day.attrezzatura || []).includes(k)}">${esc(ATTREZZI_LABEL[k] || k)}</button>`).join('')}<button type="button" data-gearnew="${gi}">+ Altro</button></div></div>`;
+    h += `<div class="sec-h ed-sec"><h3>Giornata ${day.g}</h3>${d.giorni.length > 1 ? `<div class="r"><button class="lk" data-delday="${gi}">Elimina giornata</button></div>` : ''}</div>
+      <div class="ed-day"><label class="ed-name"><span class="cap">Nome</span><input data-dname="${gi}" value="${esc(day.nome)}" maxlength="40"></label>
+      <div class="ed-name"><span class="cap">Attrezzatura da portare</span><div class="chips pick gear-pick">${[...(day.attrezzatura || []), ...ATTREZZI.map(([k]) => k).filter((k) => !(day.attrezzatura || []).includes(k))].map((k) => `<button type="button" data-gear="${gi}:${esc(k)}" class="${(day.attrezzatura || []).includes(k) ? 'on' : ''}" aria-pressed="${(day.attrezzatura || []).includes(k)}">${esc(ATTREZZI_LABEL[k] || k)}</button>`).join('')}<button type="button" class="add" data-gearnew="${gi}">+ Altro</button></div>
+      <div class="hint-i">Comparirà in home come «Porta con te».</div></div>
+      <span class="cap">Esercizi</span>`;
     if (!day.esercizi.length) h += `<div class="muted small" style="padding:6px 0">Nessun esercizio: aggiungine uno dalla lista.</div>`;
     day.esercizi.forEach((x, xi) => {
       const cat = catItem(S, x.key);
-      h += `<div class="ed-ex${x.ss ? ' ss' : ''}" data-g="${gi}" data-x="${xi}">
-        <div class="row"><b class="grow">${xi + 1}. <input class="ed-nome" data-f="nome" value="${esc(x.nome)}" aria-label="Nome dell'esercizio"></b>
+      h += `<details class="ed-ex${x.ss ? ' ss' : ''}" data-g="${gi}" data-x="${xi}"${openEx.has(x) ? ' open' : ''}>
+        <summary><span class="n">${xi + 1}</span><span class="grow"><b>${esc(x.nome)}</b><small>${x.serie} × ${esc(String(x.reps).replace('-', '–'))}${x.recupero ? ` · ${esc(x.recupero)}` : ''} · ${esc(loadLbl(x.tipoCarico))}</small></span><span class="hd" aria-hidden="true">⋮⋮</span></summary>
+        <div class="ed-body"><div class="row"><input class="ed-nome grow" data-f="nome" value="${esc(x.nome)}" aria-label="Nome dell'esercizio">
           <button class="ic" data-a="up" aria-label="Sposta su" ${xi === 0 ? 'disabled' : ''}>↑</button><button class="ic" data-a="down" aria-label="Sposta giù" ${xi === day.esercizi.length - 1 ? 'disabled' : ''}>↓</button><button class="ic" data-a="del" aria-label="Togli">✕</button></div>
         <div class="muted small">${cat ? esc(cat.primary.map((m) => MUSCLES[m]).join(', ')) + (cat.custom ? ' · creato da te' : '') : ''}</div>
         <div class="ed-grid">
@@ -200,14 +207,14 @@ export function renderSchedaEdit(id, ctx) {
           <label>Ripetizioni<input data-f="reps" value="${esc(x.reps)}" placeholder="8-10" inputmode="text"></label>
           <label>Recupero<select data-f="recupero"><option value="">—</option>${[...new Set([...RECUPERI, x.recupero].filter(Boolean))].map((r) => `<option ${r === x.recupero ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
           <label>Carico<select data-f="tipoCarico">${TIPI_CARICO.map(([v, l]) => `<option value="${v}" ${v === x.tipoCarico ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-        </div></div>`;
+        </div></div></details>`;
       if (xi < day.esercizi.length - 1) h += `<button class="ss-link${x.ss ? ' on' : ''}" data-ss="${gi}:${xi}" aria-pressed="${x.ss}">${x.ss ? '⛓ In superserie · tocca per separare' : '+ Superserie con il successivo'}</button>`;
     });
-    h += `<button class="btn block" data-add="${gi}" style="margin-top:10px">+ Aggiungi esercizio</button></div>`;
+    h += `<button class="add-ex" data-add="${gi}">+ Aggiungi esercizio</button></div>`;
   });
   if (d.giorni.length < LETTERS.length) h += `<button class="btn ghost block" id="addDay" style="margin-top:12px">+ Aggiungi giornata</button>`;
-  h += `<div class="sticky-cta" style="display:grid;gap:8px"><button class="btn primary block" id="sSave">Salva la scheda</button></div>`;
-  if (draftOld) h += `<button class="btn ghost block" id="sDel" style="margin-top:18px;color:var(--accent)">Elimina questa scheda</button>`;
+  if (draftOld) h += `<button class="lk danger" id="sDel" style="margin-top:22px">Elimina questa scheda</button>`;
+  h += `<div class="save-bar"><button class="btn primary block" id="sSave">Salva la scheda</button></div>`;
   $app.innerHTML = h;
 
   // eventi
@@ -232,8 +239,14 @@ export function renderSchedaEdit(id, ctx) {
   });
   $app.querySelectorAll('.ed-ex').forEach((row) => {
     const x = d.giorni[+row.dataset.g].esercizi[+row.dataset.x];
+    row.ontoggle = () => { if (row.open) openEx.add(x); else openEx.delete(x); };
     row.querySelectorAll('[data-f]').forEach((i) => {
-      i.onchange = i.oninput = () => { const f = i.dataset.f; x[f] = f === 'serie' ? num(i.value, 1, 10, x.serie) : i.value; };
+      i.onchange = i.oninput = () => {
+        const f = i.dataset.f; x[f] = f === 'serie' ? num(i.value, 1, 10, x.serie) : i.value;
+        const sm = row.querySelector('summary small'), nb = row.querySelector('summary b');
+        if (nb) nb.textContent = x.nome;
+        if (sm) sm.textContent = `${x.serie} × ${String(x.reps).replace('-', '–')}${x.recupero ? ` · ${x.recupero}` : ''} · ${loadLbl(x.tipoCarico)}`;
+      };
     });
     row.querySelectorAll('[data-a]').forEach((b) => {
       b.onclick = () => {
@@ -307,7 +320,7 @@ function renderPicker(ctx) {
       const key = 'c_' + nome.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now().toString(36).slice(-4);
       S.customEx = { ...(S.customEx || {}), [key]: { title: nome, primary: pri, secondary: sec } };
       ctx.save();
-      day.esercizi.push({ id: null, nome, key, serie: 3, reps: '8-10', recupero: '90″', tipoCarico: document.getElementById('cLoad').value, ss: false });
+      day.esercizi.push({ id: null, nome, key, serie: 3, reps: '8-10', recupero: '90″', tipoCarico: document.getElementById('cLoad').value, ss: false }); openEx.add(day.esercizi[day.esercizi.length - 1]);
       picker = null; toast(`«${nome}» creato e aggiunto`); ctx.rerender();
     };
     return;
@@ -330,7 +343,7 @@ function renderPicker(ctx) {
   document.getElementById('pList').onclick = (ev) => {
     const b = ev.target.closest('[data-k]'); if (!b) return;
     const c = list.find((x) => x.key === b.dataset.k);
-    day.esercizi.push({ id: null, nome: c.title, key: c.key, serie: 3, reps: '8-10', recupero: '90″', tipoCarico: guessLoad(c.title), ss: false });
+    day.esercizi.push({ id: null, nome: c.title, key: c.key, serie: 3, reps: '8-10', recupero: '90″', tipoCarico: guessLoad(c.title), ss: false }); openEx.add(day.esercizi[day.esercizi.length - 1]);
     picker = null; toast(`${c.title} aggiunto alla giornata ${day.g}`); ctx.rerender();
   };
 }

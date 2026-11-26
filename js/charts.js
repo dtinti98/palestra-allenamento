@@ -17,10 +17,10 @@ function yScale(min, max, H, top, bottom, ticks = 4) {
 }
 
 // serie: [{name, color, points:[{x, y, tip, hollow}], width, dash, dots, area}]
-export function lineChart({ series, width = 340, height = 180, xLabels = [], yFmt = (v) => nf(v), yMin, yMax, legend = true, endLabel = true }) {
+export function lineChart({ series, width = 340, height = 180, xLabels = [], yFmt = (v) => nf(v), yMin, yMax, legend = true, endLabel = true, markers = [], labelRow = '' }) {
   const all = series.flatMap((s) => s.points);
   if (!all.length) return '<div class="chart-empty">Nessun dato</div>';
-  const P = { l: 38, r: 14, t: 12, b: 24 };
+  const P = { l: 38, r: 14, t: markers.length ? 26 : 12, b: labelRow ? 40 : 24 };
   const xs = all.map((p) => p.x);
   const x0 = Math.min(...xs), x1 = Math.max(...xs);
   const ys = all.map((p) => p.y);
@@ -28,6 +28,9 @@ export function lineChart({ series, width = 340, height = 180, xLabels = [], yFm
   const X = (v) => P.l + (x1 === x0 ? 0.5 : (v - x0) / (x1 - x0)) * (width - P.l - P.r);
   let g = '';
   for (const v of ticks) g += `<line x1="${P.l}" x2="${width - P.r}" y1="${Y(v)}" y2="${Y(v)}" class="grid"/><text x="${P.l - 6}" y="${Y(v) + 4}" text-anchor="end" class="ax">${esc(yFmt(v))}</text>`;
+  // linee verticali (es. cambio scheda) con etichette ai due lati
+  for (const m of markers) { const x = X(m.x); g += `<line x1="${x}" x2="${x}" y1="${P.t - 14}" y2="${height - P.b}" class="mark"/>${m.left ? `<text x="${x - 4}" y="${P.t - 16}" text-anchor="end" class="ax mk">${esc(m.left)}</text>` : ''}${m.right ? `<text x="${x + 4}" y="${P.t - 16}" class="ax mk">${esc(m.right)}</text>` : ''}`; }
+  if (labelRow) g += `<text x="4" y="${height - 24}" class="ax mk">${esc(labelRow)}</text>`;
   for (const l of xLabels) g += `<text x="${X(l.x)}" y="${height - 6}" text-anchor="middle" class="ax">${esc(l.label)}</text>`;
   for (const s of series) {
     const pts = s.points.slice().sort((a, b) => a.x - b.x);
@@ -37,7 +40,7 @@ export function lineChart({ series, width = 340, height = 180, xLabels = [], yFm
     g += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2.2}" stroke-linejoin="round" stroke-linecap="round" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''} ${s.opacity ? `opacity="${s.opacity}"` : ''}/>`;
     if (s.dots !== false) for (const p of pts) {
       g += `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${s.r || 3.6}" fill="${p.hollow ? 'var(--surface)' : s.dotFill || 'var(--surface)'}" stroke="${s.color}" stroke-width="2" data-tip="${esc(p.tip || '')}"/>`;
-      if (p.label) g += `<text x="${X(p.x)}" y="${Y(p.y) + 15}" text-anchor="middle" class="ax small">${esc(p.label)}</text>`;
+      if (p.label) g += labelRow ? `<text x="${X(p.x)}" y="${height - 24}" text-anchor="middle" class="ax rowl">${esc(p.label)}</text>` : `<text x="${X(p.x)}" y="${Y(p.y) + 15}" text-anchor="middle" class="ax small">${esc(p.label)}</text>`;
     }
     if (s.dots === false) for (const p of pts) g += `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="7" fill="transparent" data-tip="${esc(p.tip || '')}"/>`;
     if (endLabel && s.endLabel !== false) {
@@ -45,7 +48,7 @@ export function lineChart({ series, width = 340, height = 180, xLabels = [], yFm
       g += `<text x="${X(l.x) - 4}" y="${Y(l.y) - 8}" text-anchor="end" class="val" fill="${s.color}">${esc(yFmt(l.y))}</text>`;
     }
   }
-  const leg = legend && series.length > 1 ? `<div class="chart-legend">${series.filter((s) => s.name).map((s) => `<span><i style="background:${s.color}${s.dash ? ';opacity:.6' : ''}"></i>${esc(s.name)}</span>`).join('')}</div>` : '';
+  const leg = legend && series.length > 1 ? `<div class="chart-legend">${series.filter((s) => s.name).map((s) => `<span${s.dash ? ' class="dash"' : ''}><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>` : '';
   return `<svg viewBox="0 0 ${width} ${height}" class="chart-svg" role="img">${g}</svg>${leg}`;
 }
 
