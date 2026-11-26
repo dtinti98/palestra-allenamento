@@ -102,7 +102,7 @@ const ok = (m) => console.log('  ✓', m);
     await p.fill('.set.cur [data-f=load]', '12,5'); await p.fill('.set.cur [data-f=reps]', '9'); await p.click('#doneSet');
     (await p.$('#mainSlot .ring')) && (await p.$('#restClock')) && !(await p.$('#timer')) ? ok('recupero sul pulsante della serie, niente popup') : bad('recupero: niente conto sul pulsante o popup ancora presente');
     await p.click('#restAdj [data-t="+15"]'); await p.click('#restAdj [data-t="-15"]');
-    const off = await p.$eval('#mainSlot .ring path', (e) => +e.style.strokeDashoffset); (off > 0 && off <= 100) ? ok('bordo del recupero si riempie') : bad('bordo del recupero: ' + off);
+    const off = await p.$eval('#mainSlot .ring path.bar', (e) => +e.style.strokeDashoffset); (off > 0 && off <= 100) ? ok('bordo del recupero si riempie') : bad('bordo del recupero: ' + off);
     const before = await p.$eval('#mainSlot', (e) => e.textContent); await p.click('#doneSet'); await p.waitForTimeout(80);
     (await p.$$eval('.set.done', (x) => x.length)) >= 2 ? ok('durante il recupero si può segnare la serie dopo (' + before.trim().replace(/\s+/g, ' ') + ')') : bad('recupero blocca la serie successiva');
     const v = await p.$eval('.set[data-i="0"] [data-f=load]', (e) => e.value); v === '12.5' || v === '12,5' ? ok('virgola decimale accettata') : bad('virgola: ' + v);

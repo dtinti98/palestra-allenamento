@@ -575,7 +575,7 @@ function renderSession() {
   const curSet = rec.serie.findIndex((x) => !x.fatto);
   const isBw = e.tipoCarico === 'bw';
   const lbl = LOAD_LABEL[e.tipoCarico] || 'kg';
-  h += `<div class="sets-hd"><span>Serie</span><span>${esc(lbl.charAt(0).toUpperCase() + lbl.slice(1))}</span><span>Rip.</span><span></span></div><div class="sets">`;
+  h += `<div class="sets-hd"><span class="hd-n">Serie</span><span>${esc(lbl.charAt(0).toUpperCase() + lbl.slice(1))}</span><span>Rip.</span><span></span></div><div class="sets">`;
   rec.serie.forEach((x, i) => {
     const cl = x.fatto ? 'done' : i === curSet ? 'cur' : 'todo';
     const lv = isBw ? x.zavorra : x.carico;
@@ -713,7 +713,7 @@ const timerLeft = () => (timer ? Math.max(0, Math.ceil((timer.end - Date.now()) 
 function mainBtnHTML(go = false) {
   const c = sessCtx; if (!c) return '';
   // il recupero non blocca: la serie successiva si segna quando vuoi; il bordo del riquadro si riempie col tempo
-  const ring = timer ? '<svg class="ring" aria-hidden="true"><path pathLength="100"/></svg>' : '';
+  const ring = timer ? '<svg class="ring" aria-hidden="true"><path class="track"/><path class="bar" pathLength="100"/></svg>' : '';
   if (c.allDone) {
     const clock = timer ? `<small class="rest-clock">Recupero <b class="num" id="restClock">${mmss(timerLeft())}</b></small>` : '';
     return `<button class="btn primary${timer ? ' resting' : ''}${go ? ' go' : ''}" id="next">${ring}<span class="rest-txt"><span>${c.last ? 'Fine allenamento' : 'Prossimo esercizio →'}</span>${clock}</span></button>`;
@@ -738,11 +738,12 @@ function bindMainBtn() {
 // bordo arrotondato che parte dal centro in alto e gira in senso orario
 function layoutRing() {
   const btn = document.querySelector('#mainSlot .btn'); if (!btn || !btn.querySelector('.ring')) return;
-  const svg = btn.querySelector('.ring'), path = svg.querySelector('path');
+  const svg = btn.querySelector('.ring');
   const w = btn.offsetWidth, h = btn.offsetHeight, sw = 4, i = sw / 2;
   const r = Math.min(parseFloat(getComputedStyle(btn).borderTopLeftRadius) || 14, h / 2) - i / 2;
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-  path.setAttribute('d', `M${w / 2},${i} H${w - r - i} A${r},${r} 0 0 1 ${w - i},${r + i} V${h - r - i} A${r},${r} 0 0 1 ${w - r - i},${h - i} H${r + i} A${r},${r} 0 0 1 ${i},${h - r - i} V${r + i} A${r},${r} 0 0 1 ${r + i},${i} Z`);
+  const d = `M${w / 2},${i} H${w - r - i} A${r},${r} 0 0 1 ${w - i},${r + i} V${h - r - i} A${r},${r} 0 0 1 ${w - r - i},${h - i} H${r + i} A${r},${r} 0 0 1 ${i},${h - r - i} V${r + i} A${r},${r} 0 0 1 ${r + i},${i} Z`;
+  svg.querySelectorAll('path').forEach((x) => x.setAttribute('d', d));
 }
 function drawTimer() {
   if (!timer) return;
@@ -750,7 +751,7 @@ function drawTimer() {
   const btn = document.querySelector('#mainSlot .btn');
   if (btn && btn.querySelector('.ring')) {
     const done = Math.min(100, Math.max(0, (1 - (timer.end - Date.now()) / (timer.total * 1000)) * 100));
-    btn.querySelector('.ring path').style.strokeDashoffset = String(100 - done);
+    btn.querySelector('.ring path.bar').style.strokeDashoffset = String(100 - done);
     const ck = document.getElementById('restClock'); if (ck) ck.textContent = mmss(l);
   }
   if (l <= 0) endRest(true);

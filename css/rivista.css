@@ -178,6 +178,9 @@ body.in-session main { padding-bottom: calc(210px + env(safe-area-inset-bottom))
 .sess-foot .btn.primary { min-height: 60px; font-size: 17px; }
 .btn.resting .ring path { stroke: var(--accent); stroke-linecap: butt; }
 .btn.primary.resting .ring path { stroke: var(--band-ink); }
+/* binario intero sotto la barra del recupero, così il tratto si legge come avanzamento */
+.btn.resting .ring path.track { stroke: var(--accent); stroke-opacity: .18; stroke-dasharray: none; stroke-dashoffset: 0; transition: none; }
+.btn.primary.resting .ring path.track { stroke: var(--band-ink); stroke-opacity: .3; }
 .sess-foot .rest-adj { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .sess-foot .rest-adj[hidden] { display: none; }
 .sess-foot .rest-adj button { border: 1px solid var(--band-line); background: none; color: var(--band-ink); border-radius: var(--radius); padding: 10px; font-weight: 500; }
@@ -195,6 +198,8 @@ body.in-session main { padding-bottom: calc(210px + env(safe-area-inset-bottom))
 .ex-item.in-ss { border-left-color: var(--accent-2); }
 .gear-pick button.on { background: var(--text); border-color: var(--text); color: var(--bg); }
 @media (max-width: 350px) {
+  .sets-hd .hd-n { font-size: 0; }
+  .sets-hd .hd-n::after { content: 'N.'; font-size: 15px; }
   .sets-hd, .set { grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr) 46px; gap: 6px; }
   .set .tick, .set.cur .tick { width: 46px; }
   .set.cur .stepper button { width: 22px; font-size: 19px; }
