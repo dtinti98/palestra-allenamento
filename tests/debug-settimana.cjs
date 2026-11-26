@@ -50,7 +50,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
     await go(''); (await dayDone()) === 'xx-x' ? ok('home: A B D fatti') : ko('home dopo B: ' + await dayDone());
 
     // storico
-    for (const sec of ['riepilogo', 'peso', 'forza', 'volume', 'allenamenti']) { await go('#/storico/' + sec); await overflow('storico ' + sec); }
+    for (const sec of ['riepilogo', 'peso', 'forza', 'volume', 'allenamenti', 'impostazioni']) { await go('#/storico/' + sec); await overflow('storico ' + sec); }
     await go('#/storico/riepilogo'); const tR = await txt();
     /3\s*\/\s*4|3 di 4/.test(tR) ? ok('riepilogo: 3 sedute su 4 questa settimana') : console.log('  · riepilogo (controllo a vista):', tR.slice(0, 160).replace(/\n/g, ' | '));
     await go('#/storico/forza'); await p.click('[data-sch="2"]').catch(() => {}); await p.waitForTimeout(150);
@@ -58,7 +58,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
     if (opt) { await p.selectOption('#essel', opt); await p.waitForTimeout(150); /S4|sett\. 4|23\/11/.test(await txt()) ? ok('forza: Hip thrust con la settimana 4') : console.log('  · forza hip thrust (a vista):', (await txt()).slice(-200).replace(/\n/g, ' | ')); }
 
     // export della settimana 4
-    await go('#/storico/allenamenti');
+    await go('#/storico/impostazioni');
     const wk = await p.$$eval('#expw option', (o) => o.map((x) => [x.value, x.textContent]));
     const f = await download('#expShare');
     if (f) {
@@ -94,7 +94,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
     await go('#/scheda/2'); await p.click('[data-add="2"]'); await p.fill('#pq', 'zzz'); await p.waitForTimeout(80); await p.click('#pNew'); await p.waitForTimeout(80);
     await p.fill('#cNome', 'Croci ai cavi alti'); await p.click('#cPri [data-m]'); await p.click('#cSave'); await p.waitForTimeout(150);
     await p.click('#sSave'); await p.waitForTimeout(250);
-    await go('#/storico/allenamenti');
+    await go('#/storico/impostazioni');
     const bk = await download('#exp');
     if (bk) {
       await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(300);
@@ -106,7 +106,7 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
       nT === nE ? ok(`ripristino: miniature giornata C (${nE})`) : ko(`miniature dopo ripristino ${nT}/${nE}`);
       // reimportare il backup del diario dopo una modifica chiede conferma
       let asked = ''; p.removeAllListeners('dialog'); p.on('dialog', (d) => { asked = d.message(); d.dismiss(); });
-      await go('#/storico/allenamenti'); await p.setInputFiles('#imp', BACKUP); await p.waitForTimeout(400);
+      await go('#/storico/impostazioni'); await p.setInputFiles('#imp', BACKUP); await p.waitForTimeout(400);
       /modificato/.test(asked) && (await st()).diario.schede[1].esercizi.length === s.diario.schede[1].esercizi.length ? ok('import di un diario sopra schede modificate: chiede conferma') : ko('import sopra schede modificate senza conferma: ' + asked);
       p.removeAllListeners('dialog'); p.on('dialog', (d) => d.accept());
     } else ko('backup: download non trovato');

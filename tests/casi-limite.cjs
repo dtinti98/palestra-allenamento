@@ -19,7 +19,7 @@ const base = (x = {}) => ({ sessions: [], pesate: [], misure: [], exported: [], 
     await p.clock.setFixedTime(new Date('2026-11-24T10:00:00'));
     await p.goto(U); await setSt(p, base({ misure: [{ data: '2026-11-20', vita: 76, massa_muscolare: 30 }] }));
     // solo misure: export disponibile
-    await p.goto(U + '#/storico/allenamenti'); await p.reload(); await p.waitForTimeout(300);
+    await p.goto(U + '#/storico/impostazioni'); await p.reload(); await p.waitForTimeout(300);
     (await p.$('#expShare')) ? ok('export disponibile con sole misure') : ko('export assente con sole misure');
     const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#expShare')]); const f = os.tmpdir() + '/m.json'; await dl.saveAs(f);
     const ex = JSON.parse(fs.readFileSync(f, 'utf8'));
@@ -49,7 +49,7 @@ const base = (x = {}) => ({ sessions: [], pesate: [], misure: [], exported: [], 
     await p.fill('#wkg', '64,6'); await p.click('#wsave'); await p.waitForTimeout(200);
     (await st(p)).misure[0].peso === 64.6 ? ok('pesata allinea il peso della misurazione') : ko('pesata e misura disallineate');
     // altezza non valida
-    await p.goto(U + '#/storico/allenamenti'); await p.waitForTimeout(200);
+    await p.goto(U + '#/storico/impostazioni'); await p.waitForTimeout(200);
     await p.fill('#altezza', '17'); await p.$eval('#altezza', (e) => e.dispatchEvent(new Event('change'))); await p.waitForTimeout(100);
     (await st(p)).settings.altezza == null ? ok('altezza non valida scartata') : ko('altezza 17 accettata');
     // promemoria in home: lunedì 30/11 con dati della settimana del 23/11
@@ -67,7 +67,7 @@ const base = (x = {}) => ({ sessions: [], pesate: [], misure: [], exported: [], 
     const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
     await p.clock.setFixedTime(new Date('2026-11-24T10:00:00'));
     await p.goto(U); await setSt(p, base({ settings: { altezza: 175, nascita: '1990-01-01' }, misure: [{ data: '2026-11-20', peso: 64.2, grasso_pct: 14.5, vita: 75, fianchi: 92, braccio: 34, massa_muscolare: 30.5 }], pesate: [{ data: '2026-11-24', peso: 64.4 }] }));
-    for (const r of ['', 'storico/riepilogo', 'storico/peso', 'storico/forza', 'storico/volume', 'storico/allenamenti', 'esercizi']) {
+    for (const r of ['', 'storico/riepilogo', 'storico/peso', 'storico/forza', 'storico/volume', 'storico/allenamenti', 'storico/impostazioni', 'esercizi']) {
       await p.goto(U + '#/' + r); await p.reload(); await p.waitForTimeout(350);
       if (r === 'storico/peso') await p.click('#misura summary');
       const over = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

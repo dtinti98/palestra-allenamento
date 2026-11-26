@@ -123,9 +123,17 @@ function doneDays(scheda, week) {
   return set;
 }
 
-function repsText(h) {
+// ripetizioni serie per serie (8/8/8). Il diario ha solo la media: se è intera le serie sono quelle,
+// altrimenti si ricostruiscono dal totale (≈), con le serie più alte all'inizio.
+function repsText(h, nSerie) {
   if (h.serie) return h.serie.map((x) => fmt(x.reps)).join('/');
-  return h.repsRegistrate ? `${fmt(h.reps)} di media` : `${fmt(h.reps)}`;
+  const n = nSerie || 0, r = h.reps;
+  if (!n || r == null) return `${fmt(r ?? '')}`;
+  const tot = Math.round(r * n);
+  if (Math.abs(tot - r * n) > 0.05) return `${fmt(r)} di media`;
+  const base = Math.floor(tot / n), extra = tot - base * n;
+  const sets = Array.from({ length: n }, (_, i) => base + (i < extra ? 1 : 0));
+  return (extra ? '≈ ' : '') + sets.join('/');
 }
 function loadText(ex, h) {
   if (ex.tipoCarico === 'bw') {
@@ -138,7 +146,7 @@ function loadText(ex, h) {
 function lastLine(ex, exclude) {
   const h = history(ex, { exclude });
   const l = h[h.length - 1];
-  return l ? `Sett. ${l.settimana}: ${loadText(ex, l)} × ${repsText(l)}` : 'Nessun carico registrato';
+  return l ? `Sett. ${l.settimana}: ${loadText(ex, l)} × ${repsText(l, ex.serie)}` : 'Nessun carico registrato';
 }
 
 // doppia progressione: tutte le serie in cima al range -> segnalarlo (decide il PT di quanto salire)
@@ -168,7 +176,7 @@ function setTab(tab) {
 function animate(el, lib, label) {
   stopAnim();
   if (!el || !lib) return;
-  let playing = true, t0 = performance.now(), last = 0;
+  let playing = false, t0 = performance.now(), last = 0;
   const btn = el.parentElement.querySelector('.play');
   const frame = (now) => {
     if (!el.isConnected) return stopAnim();
@@ -183,6 +191,7 @@ function animate(el, lib, label) {
   view.anim = requestAnimationFrame(frame);
   if (btn) btn.onclick = () => {
     playing = !playing;
+    if (playing) t0 = performance.now();
     btn.textContent = playing ? '❚❚ Pausa' : '▶ Movimento';
     if (!playing) el.innerHTML = figureSVG(lib, 1, { ghost: true, label });
   };
@@ -232,7 +241,7 @@ function renderHome() {
     const mon = mondayOf(today), prev = addDays(mon, -7);
     const target = dow === 0 ? mon : dow === 1 ? prev : null;
     if (target && exportWeeks().includes(target) && !(S.exported || []).includes(target)) {
-      h += `<a class="card resume" href="#/storico/allenamenti" style="border-color:var(--accent-2)"><div class="grow"><b>Fine settimana: esporta i dati</b><div class="muted">Settimana dal ${dShort(target)}, da caricare in chat per diario e dashboard</div></div><span class="btn small">Esporta</span></a>`;
+      h += `<a class="card resume" href="#/storico/impostazioni" style="border-color:var(--accent-2)"><div class="grow"><b>Fine settimana: esporta i dati</b><div class="muted">Settimana dal ${dShort(target)}, da caricare in chat per diario e dashboard</div></div><span class="btn small">Esporta</span></a>`;
     }
   }
   h += `<div class="card hero"><h1>${esc(sch.nome.split(' - ')[0])}</h1><div class="muted">${esc(sch.nome.split(' - ')[1] || '')}</div>
@@ -388,13 +397,13 @@ function renderSession() {
   } else if (exs[sess.idx + 1]) {
     h += `<div class="ss-banner off"><button id="ssOn">+ Fai in superserie con ${esc(exs[sess.idx + 1].nome)}</button></div>`;
   }
-  h += `<div class="split"><div class="figure-wrap session-fig"><div class="paper" id="fig">${lib ? figureSVG(lib, 1, { ghost: true, label: lib.title }) : customFor(e) ? bodyMapSVG(prim, sec) : ''}</div>${lib ? '<button class="play">❚❚ Pausa</button>' : ''}</div><div style="display:flex;flex-direction:column;gap:10px">`;
+  h += `<div class="split"><div class="figure-wrap session-fig"><div class="paper" id="fig">${lib ? figureSVG(lib, 1, { ghost: true, label: lib.title }) : customFor(e) ? bodyMapSVG(prim, sec) : ''}</div>${lib ? '<button class="play">▶ Movimento</button>' : ''}</div><div style="display:flex;flex-direction:column;gap:10px">`;
   h += `<div class="chips">${prim.map((m) => `<span class="chip"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}${sec.map((m) => `<span class="chip sec"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}</div>`;
   h += `<div class="card prev"><h3>Le volte scorse</h3>`;
   if (hist.length) {
     h += `<table class="num"><tr><th>Sett.</th><th>Carico</th><th>Rip.</th></tr>`;
     hist.slice(-3).reverse().forEach((x, i) => {
-      h += `<tr class="${i === 0 ? 'best' : ''}"><td>${x.settimana}${x.data ? ` <span class="muted">(${dShort(x.data)})</span>` : ''}</td><td>${esc(loadText(e, x))}</td><td>${esc(repsText(x))}</td></tr>`;
+      h += `<tr class="${i === 0 ? 'best' : ''}"><td>${x.settimana}${x.data ? ` <span class="muted">(${dShort(x.data)})</span>` : ''}</td><td>${esc(loadText(e, x))}</td><td>${esc(repsText(x, e.serie))}</td></tr>`;
     });
     h += `</table>`;
     if (atTop(e, lastH)) h += `<div class="hint">L'ultima volta sei arrivato in cima al range (${e.range[1]} rip.) in tutte le serie: con la doppia progressione puoi salire di carico. Di quanto lo decide il PT.</div>`;
@@ -416,7 +425,7 @@ function renderSession() {
       <button class="tick" data-act="done" aria-label="Serie ${i + 1} fatta"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button></div>`;
   });
   h += `</div>`;
-  if (isBw) h += `<div class="bw-info">Peso corporeo usato: <b>${fmt(sess.pesoCorporeo)} kg</b>. Nel diario il carico è peso corporeo + zavorra (si cambia da Storico → Impostazioni).</div>`;
+  if (isBw) h += `<div class="bw-info">Peso corporeo usato: <b>${fmt(sess.pesoCorporeo)} kg</b>. Nel diario il carico è peso corporeo + zavorra (si cambia da Storico → Impostazioni ed export).</div>`;
 
   const allDone = curSet === -1;
   const last = sess.idx === exs.length - 1;
@@ -746,7 +755,7 @@ function renderExercise(key, from) {
   const back = fromEx ? `#/giorno/${fromEx.ex.giorno}` : '#/esercizi';
   setTop(L.title, used.map((x) => x.e.nome).filter((v, i, a) => a.indexOf(v) === i).join(' · '), back);
   setTab(fromEx ? 'home' : 'esercizi');
-  let h = `<div class="paper pair" style="margin-bottom:12px">${pairSVG3(L)}</div>` + `<div class="split"><div class="figure-wrap"><div class="paper" id="fig">${figureSVG(L, 1, { ghost: true, label: L.title })}</div><button class="play">❚❚ Pausa</button></div>`;
+  let h = `<div class="paper pair" style="margin-bottom:12px">${pairSVG3(L)}</div>` + `<div class="split"><div class="figure-wrap"><div class="paper" id="fig">${figureSVG(L, 1, { ghost: true, label: L.title })}</div><button class="play">▶ Movimento</button></div>`;
   h += `<div class="bodymap"><div class="paper">${bodyMapSVG(L.primary, L.secondary)}</div><div class="legend"><span><i style="background:var(--accent)"></i>principale</span><span><i style="background:var(--accent-2)"></i>secondario</span></div></div></div>`;
   h += `<div class="chips" style="margin-top:12px">${L.primary.map((m) => `<span class="chip"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}${L.secondary.map((m) => `<span class="chip sec"><span class="dot"></span>${esc(MUSCLES[m])}</span>`).join('')}</div>`;
   h += `<div class="section-title">Esecuzione</div><div class="card" style="padding:12px 14px"><ul class="tips">${L.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
@@ -758,7 +767,7 @@ function renderExercise(key, from) {
     if (hist.length) {
       const pts = hist.map((x) => ({ x: x.settimana, y: x.carico, label: `Sett. ${x.settimana}`, short: `S${x.settimana}` }));
       h += `<div class="chart">${chartSVG(pts)}</div>`;
-      h += `<table class="num"><tr><th>Sett.</th><th>Carico</th><th>Rip.</th></tr>${hist.slice().reverse().map((x) => `<tr><td>${x.settimana}${x.data ? ` <span class="muted">(${dShort(x.data)})</span>` : ''}</td><td>${esc(loadText(e, x))}</td><td>${esc(repsText(x))}</td></tr>`).join('')}</table>`;
+      h += `<table class="num"><tr><th>Sett.</th><th>Carico</th><th>Rip.</th></tr>${hist.slice().reverse().map((x) => `<tr><td>${x.settimana}${x.data ? ` <span class="muted">(${dShort(x.data)})</span>` : ''}</td><td>${esc(loadText(e, x))}</td><td>${esc(repsText(x, e.serie))}</td></tr>`).join('')}</table>`;
     } else h += `<div class="muted">Nessun carico registrato.</div>`;
     h += `</div>`;
   }
@@ -767,7 +776,7 @@ function renderExercise(key, from) {
 }
 
 // ---------------------------------------------------------------- STORICO E PROGRESSI
-const SUBS = [['riepilogo', 'Riepilogo'], ['peso', 'Peso'], ['forza', 'Forza'], ['volume', 'Volume'], ['allenamenti', 'Allenamenti']];
+const SUBS = [['riepilogo', 'Riepilogo'], ['peso', 'Peso'], ['forza', 'Forza'], ['volume', 'Volume'], ['allenamenti', 'Allenamenti'], ['impostazioni', 'Impostazioni ed export']];
 const SCH_COL = { 1: '#5b8bb5', 2: 'var(--accent)' };
 const PAL = ['#e2492f', '#3f86c6', '#2f9a62', '#c08414', '#8a5cc2', '#cf4f8f'];
 let storicoScheda = null, pesoRange = 60, esSel = null, misuraKey = 'vita';
@@ -854,7 +863,7 @@ function bindPesata() {
 }
 
 function renderHistory(sub = 'riepilogo') {
-  const subs = hasScheda() ? SUBS : SUBS.filter(([k]) => k === 'peso' || k === 'allenamenti');
+  const subs = hasScheda() ? SUBS : SUBS.filter(([k]) => k === 'peso' || k === 'allenamenti' || k === 'impostazioni');
   if (!subs.some(([k]) => k === sub)) sub = subs[0][0];
   setTop('Storico', 'Progressi calcolati sul telefono');
   setTab('storico');
@@ -915,7 +924,7 @@ function renderHistory(sub = 'riepilogo') {
         if (c.vita != null) cards.push(kpiCard('Vita', sign(c.vita, 1), ' cm', `dal ${dShort(c.dal)}`));
         if (c.braccio != null) cards.push(kpiCard('Bicipite', sign(c.braccio, 1), ' cm', `dal ${dShort(c.dal)}`));
       }
-      if (!alt || !S.settings.nascita) cards.push(`<div class="card kpi"><span class="kpi-l">${!alt ? 'BMI' : 'Età'}</span><span class="kpi-s">Inserisci ${!alt && !S.settings.nascita ? 'altezza e data di nascita' : !alt ? 'l\'altezza' : 'la data di nascita'} in Storico → Allenamenti → Impostazioni.</span></div>`);
+      if (!alt || !S.settings.nascita) cards.push(`<div class="card kpi"><span class="kpi-l">${!alt ? 'BMI' : 'Età'}</span><span class="kpi-s">Inserisci ${!alt && !S.settings.nascita ? 'altezza e data di nascita' : !alt ? 'l\'altezza' : 'la data di nascita'} in Storico → Impostazioni ed export.</span></div>`);
       if (cards.length) h += `<div class="kpis">${cards.join('')}</div>`;
       if (c) h += `<div class="muted small" style="margin:6px 2px 10px">Variazioni dalla prima all'ultima misurazione. La bioimpedenza varia con idratazione e orario: leggila come tendenza.</div>`;
     }
@@ -994,6 +1003,7 @@ function renderHistory(sub = 'riepilogo') {
 
 
   if (sub === 'allenamenti') h += historyListHTML();
+  if (sub === 'impostazioni') h += settingsHTML();
   $app.innerHTML = h;
 
   $app.querySelectorAll('[data-sch]').forEach((b) => { b.onclick = () => { storicoScheda = +b.dataset.sch; esSel = null; route(); }; });
@@ -1010,6 +1020,7 @@ function renderHistory(sub = 'riepilogo') {
   bindPesata();
   bindMisura();
   if (sub === 'allenamenti') bindHistoryList();
+  if (sub === 'impostazioni') bindSettings();
 }
 function xDates(dates) {
   if (!dates.length) return [];
@@ -1030,8 +1041,11 @@ function historyListHTML() {
       <button class="btn small ghost" data-copy="${s.id}">Copia</button><button class="btn small ghost" data-del="${s.id}" aria-label="Elimina">✕</button></div>
       <ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></div>`;
   }
+  return h;
+}
+function settingsHTML() {
   const theme = S.settings.theme || 'auto';
-  h += `<div class="section-title">Impostazioni</div><div class="card settings">
+  let h = `<div class="section-title" style="margin-top:0">Impostazioni</div><div class="card settings">
     <label>Peso corporeo per trazioni e dip (kg)<input type="number" step="0.05" inputmode="decimal" id="bw" value="${S.settings.bw ?? ''}" placeholder="${fmt(bodyweight(todayISO()))}"></label>
     <label>Data di nascita<input type="date" id="nascita" value="${S.settings.nascita ?? ''}" max="${todayISO()}"></label>
     <label>Altezza (cm)<input type="number" step="1" inputmode="numeric" id="altezza" value="${S.settings.altezza ?? ''}" placeholder="es. 175"></label>
@@ -1052,6 +1066,8 @@ function bindHistoryList() {
   $app.querySelectorAll('[data-copy]').forEach((b) => {
     b.onclick = async () => { try { await navigator.clipboard.writeText(sessionText(S.sessions.find((s) => s.id === b.dataset.copy))); toast('Testo copiato'); } catch (e) { toast('Copia non riuscita'); } };
   });
+}
+function bindSettings() {
   document.getElementById('bw').onchange = (ev) => { S.settings.bw = parseNum(ev.target.value); save(); };
   document.getElementById('nascita').onchange = (ev) => { const v = ev.target.value; S.settings.nascita = /^\d{4}-\d{2}-\d{2}$/.test(v) && v > '1920' ? v : null; save(); };
   document.getElementById('altezza').onchange = (ev) => { const v = parseNum(ev.target.value); S.settings.altezza = v && v > 100 && v < 230 ? v : null; if (v != null && !S.settings.altezza) { toast('Altezza non valida'); ev.target.value = ''; } save(); };

@@ -26,7 +26,7 @@ Gli allenamenti registrati restano nel browser del telefono (localStorage). Usa 
 
 L'app pubblicata non contiene dati personali: al primo avvio è vuota e chiede di importare un backup.
 Scheda, carichi, pesate e misure stanno solo nel browser del telefono (localStorage).
-Da Storico → Allenamenti si esporta un backup completo, che si reimporta su un altro telefono.
+Da Storico → Impostazioni ed export si esporta un backup completo, che si reimporta su un altro telefono.
 
 Per creare il backup dal diario Excel:
 
