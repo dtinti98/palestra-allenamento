@@ -25,6 +25,7 @@ const check = (cond, m) => (cond ? ok(m) : ko(m));
   check(d.giorni[1].esercizi[3].nome === 'Curl bilanciere EZ', 'nome personalizzato tenuto');
   check(r.nuoviEsercizi.pressa_orizzontale && r.nuoviEsercizi.pressa_orizzontale.primary[0] === 'quadricipiti', 'esercizio fuori catalogo creato con i muscoli');
   check(d.giorni[2].esercizi[2].key === 'pressa_orizzontale', 'la bozza usa la chiave del nuovo esercizio');
+  check(d.giorni[0].attrezzatura.length === 0 && d.giorni[1].attrezzatura.join() === 'cintura_zavorra,straps' && d.giorni[2].attrezzatura.join() === 'cintura,scarpe_squat', 'attrezzatura per giornata (anche col nome mostrato)');
   // le chiavi della bozza sono quelle dell'editor
   check(JSON.stringify(Object.keys(panca).sort()) === JSON.stringify(['id', 'nome', 'key', 'serie', 'reps', 'recupero', 'tipoCarico', 'ss', 'kg', 'note'].sort()), 'campi della bozza come in editor.js (+ kg, note)');
 
@@ -40,6 +41,9 @@ const check = (cond, m) => (cond ? ok(m) : ko(m));
   x = parseSchedaJSON(mini({ esercizio: 'nuovo_x', nome: 'Nuovo X', muscoli: { primari: ['Dorsali'], secondari: ['bicipiti'] }, ripetizioni: 10 }), opts);
   check(x.ok && x.nuoviEsercizi.nuovo_x.primary[0] === 'dorso', 'muscoli anche col nome mostrato (Dorsali = dorso)');
 
+  x = parseSchedaJSON({ formato: 'palestra-scheda', versione: 1, scheda: { titolo: 'T', giorni: [{ nome: 'G', attrezzatura: ['Fasce', 'fasce', 'Corda per saltare'], esercizi: [{ esercizio: 'db_curl', ripetizioni: 10 }] }] } }, opts);
+  check(x.ok && x.draft.giorni[0].attrezzatura.join() === 'fasce,Corda per saltare' && x.avvisi.some((a) => a.includes('voce libera')), 'attrezzatura: doppioni tolti, voce libera con avviso');
+
   console.log('\n===== errori');
   const err = (inp, frase, m) => { const e = parseSchedaJSON(inp, opts); check(!e.ok && e.errori.some((t) => t.includes(frase)), m + (e.ok ? ' (accettato)' : `: ${e.errori[0]}`)); };
   err('{ non json', 'JSON valido', 'testo non JSON');
@@ -50,6 +54,7 @@ const check = (cond, m) => (cond ? ok(m) : ko(m));
   err(mini({ esercizio: 'db_curl', ripetizioni: 10, tipoCarico: 'kg' }), 'tipoCarico', 'tipoCarico sconosciuto');
   err(mini({ esercizio: 'db_curl', ripetizioni: 10, recupero: 'poco' }), 'recupero', 'recupero illeggibile');
   err({ formato: 'palestra-scheda', scheda: { titolo: 'T', giorni: [] } }, 'giorni', 'nessuna giornata');
+  err({ formato: 'palestra-scheda', scheda: { titolo: 'T', giorni: [{ nome: 'G', attrezzatura: ['x'.repeat(40)], esercizi: [{ esercizio: 'db_curl', ripetizioni: 10 }] }] } }, 'troppo lungo', 'attrezzo troppo lungo');
 
   console.log(bad ? `\n${bad} controlli falliti` : '\nTutto ok');
   process.exit(bad ? 1 : 0);
