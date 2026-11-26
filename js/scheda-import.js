@@ -2,7 +2,7 @@
 // Modulo puro: niente DOM e niente salvataggi. Restituisce la bozza nella stessa forma
 // di quella dell'editor (js/editor.js), da aprire nell'editor perché la si controlli e salvi.
 //
-//   parseSchedaJSON(testoOppureOggetto, { lib, muscles, customEx, guessLoad })
+//   parseSchedaJSON(testoOppureOggetto, { lib, muscles, customEx, guessLoad, attrezzi })
 //     -> { ok: true, draft, nuoviEsercizi, avvisi }
 //     -> { ok: false, errori, avvisi }
 
@@ -10,6 +10,9 @@ export const FORMATO = 'palestra-scheda';
 export const VERSIONE = 1;
 export const TIPI_CARICO_VALIDI = ['barbell', 'machine', 'sum', 'single', 'plate', 'bw', 'free'];
 const LETTERS = 'ABCDEFGHIJ'.split('');
+// attrezzatura da portare: stesse chiavi di ATTREZZI in js/editor.js (sovrascrivibili con opts.attrezzi)
+export const ATTREZZI_NOTI = [['cintura', 'Cintura'], ['fasce', 'Fasce'], ['straps', 'Straps'], ['cintura_zavorra', 'Cintura zavorra'], ['ginocchiere', 'Ginocchiere'],
+  ['gomitiere', 'Gomitiere'], ['magnesite', 'Magnesite'], ['guanti', 'Guanti'], ['elastici', 'Elastici'], ['cavigliere', 'Cavigliere'], ['scarpe_squat', 'Scarpe da squat'], ['asciugamano', 'Asciugamano']];
 
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 const txt = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
@@ -47,6 +50,7 @@ const mondayOf = (iso) => { const d = new Date(iso + 'T12:00:00Z'); return new D
 export function parseSchedaJSON(input, opts = {}) {
   const lib = opts.lib || {}, muscles = opts.muscles || {}, customEx = opts.customEx || {};
   const guess = opts.guessLoad || (() => 'machine');
+  const gear = new Map((opts.attrezzi || ATTREZZI_NOTI).flatMap(([k, l]) => [[norm(k), k], [norm(k).replace(/_/g, ' '), k], [norm(l), k]]));
   const errori = [], avvisi = [];
   const fail = () => ({ ok: false, errori, avvisi });
 
@@ -90,9 +94,26 @@ export function parseSchedaJSON(input, opts = {}) {
   const giorni = sch.giorni.map((gd, gi) => {
     const g = LETTERS[gi];
     const dove = `Giornata ${g}`;
-    if (!isObj(gd)) { errori.push(`${dove}: deve essere un oggetto { "nome", "esercizi" }.`); return { g, nome: `Giorno ${g}`, esercizi: [] }; }
+    if (!isObj(gd)) { errori.push(`${dove}: deve essere un oggetto { "nome", "esercizi" }.`); return { g, nome: `Giorno ${g}`, attrezzatura: [], esercizi: [] }; }
     const nome = txt(gd.nome).slice(0, 40) || `Giorno ${g}`;
-    if (!Array.isArray(gd.esercizi) || !gd.esercizi.length) { errori.push(`${dove} (${nome}): "esercizi" deve essere una lista non vuota.`); return { g, nome, esercizi: [] }; }
+    // attrezzatura: chiave nota (o il suo nome) oppure testo libero di max 30 caratteri
+    let attrezzatura = [];
+    if (gd.attrezzatura !== undefined && gd.attrezzatura !== null) {
+      const lista = typeof gd.attrezzatura === 'string' ? gd.attrezzatura.split(',') : gd.attrezzatura;
+      if (!Array.isArray(lista)) errori.push(`${dove} (${nome}): "attrezzatura" deve essere una lista, es. ["cintura", "fasce"].`);
+      else {
+        for (const v of lista) {
+          const t = txt(v);
+          if (!t) continue;
+          const k = gear.get(norm(t));
+          if (k) attrezzatura.push(k);
+          else if (t.length <= 30) { attrezzatura.push(t); avvisi.push(`${dove}: «${t}» non è tra gli attrezzi noti, aggiunto come voce libera.`); }
+          else errori.push(`${dove} (${nome}): attrezzo «${t.slice(0, 40)}…» troppo lungo (max 30 caratteri).`);
+        }
+        attrezzatura = [...new Set(attrezzatura)];
+      }
+    }
+    if (!Array.isArray(gd.esercizi) || !gd.esercizi.length) { errori.push(`${dove} (${nome}): "esercizi" deve essere una lista non vuota.`); return { g, nome, attrezzatura, esercizi: [] }; }
     const labels = [];
     const esercizi = gd.esercizi.map((x, xi) => {
       const at = `${dove}, esercizio ${xi + 1}`;
@@ -142,7 +163,7 @@ export function parseSchedaJSON(input, opts = {}) {
       if (labels[i + 1] === l && esercizi[i]) esercizi[i].ss = true;
       if (labels[i - 1] !== l && labels[i + 1] !== l) avvisi.push(`${dove}: superserie «${l}» con un solo esercizio, ignorata.`);
     });
-    return { g, nome, esercizi: esercizi.filter(Boolean) };
+    return { g, nome, attrezzatura, esercizi: esercizi.filter(Boolean) };
   });
 
   if (errori.length) return fail();

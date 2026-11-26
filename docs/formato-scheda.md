@@ -56,6 +56,11 @@ Esempio completo: [`esempio-scheda.json`](esempio-scheda.json). Lettura e contro
 |---|---|---|
 | `nome` | sì | nome della giornata, max 40 caratteri (es. `"Petto + spalle"`) |
 | `esercizi` | sì | lista di esercizi in ordine di esecuzione, almeno uno |
+| `attrezzatura` | no | cosa portare quel giorno (in home come «Porta con te»): lista di chiavi note o testo libero (max 30 caratteri), es. `["cintura", "fasce"]` |
+
+Attrezzi noti: `cintura`, `fasce`, `straps`, `cintura_zavorra`, `ginocchiere`, `gomitiere`, `magnesite`, `guanti`, `elastici`,
+`cavigliere`, `scarpe_squat`, `asciugamano`. Vale anche il nome mostrato (`"Scarpe da squat"` = `scarpe_squat`);
+qualsiasi altra voce breve entra come voce libera.
 
 La lettera della giornata (A, B, C…) non si scrive: la dà la posizione nella lista.
 
@@ -95,13 +100,14 @@ L'app lo crea tra gli esercizi tuoi (senza disegno, con la mappa dei muscoli). M
 Il file non viene importato, con un messaggio che dice giornata ed esercizio, se: non è JSON, `formato` è diverso,
 mancano le giornate o gli esercizi, un id non è nel catalogo e non ha `nome` e `muscoli`, `ripetizioni` non è un numero
 o un intervallo (niente «max» o «30 secondi»: scriverli nelle `note`), `serie` è fuori da 1–10, `tipoCarico` o `recupero` non si leggono.
-Sono solo avvisi (il file passa): `inizio` non di lunedì, superserie con un solo esercizio, campi sconosciuti (ignorati).
+Sono solo avvisi (il file passa): `inizio` non di lunedì, attrezzo non tra quelli noti (entra come voce libera), superserie con un solo esercizio, campi sconosciuti (ignorati).
 
 ## Regole per chi converte una scheda
 
 - Un file per scheda, nome consigliato `scheda-<titolo>-<AAAA-MM-GG>.json`, UTF-8.
 - Per ogni esercizio cercare l'id nel catalogo qui sotto; il nome scritto nella scheda originale va in `nome` solo se diverso.
 - Ripetizioni a piramide (12/10/8): intervallo `"8-12"` e la sequenza nelle `note`. Esercizi a tempo (plank 45″): `ripetizioni` 1 e il tempo nelle `note`.
+- Attrezzatura: se la scheda la indica (cintura, fasce, straps…) va in `attrezzatura` della giornata; altrimenti si deduce solo se è ovvia (zavorra per trazioni o dip zavorrati).
 - Tecniche (drop set, rest-pause, tempo 3-1-1, RIR/RPE) nelle `note` dell'esercizio; progressione e scarico nelle `note` della scheda.
 - Il file non contiene dati personali oltre alla scheda stessa.
 
