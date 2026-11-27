@@ -197,7 +197,9 @@ export function renderSchedaEdit(id, ctx) {
     if (!day.esercizi.length) h += `<div class="muted small" style="padding:6px 0">Nessun esercizio: aggiungine uno dalla lista.</div>`;
     day.esercizi.forEach((x, xi) => {
       const cat = catItem(S, x.key);
-      h += `<details class="ed-ex${x.ss ? ' ss' : ''}" data-g="${gi}" data-x="${xi}"${openEx.has(x) ? ' open' : ''}>
+      const inPrev = xi > 0 && day.esercizi[xi - 1].ss;
+      if (x.ss && !inPrev) h += `<div class="ss-grp">`;
+      h += `<details class="ed-ex" data-g="${gi}" data-x="${xi}"${openEx.has(x) ? ' open' : ''}>
         <summary><span class="n">${xi + 1}</span><span class="grow"><b>${esc(x.nome)}</b><small>${x.serie} × ${esc(String(x.reps).replace('-', '–'))}${x.recupero ? ` · ${esc(x.recupero)}` : ''} · ${esc(loadLbl(x.tipoCarico))}</small></span><span class="hd" aria-hidden="true">⋮⋮</span></summary>
         <div class="ed-body"><div class="row"><input class="ed-nome grow" data-f="nome" value="${esc(x.nome)}" aria-label="Nome dell'esercizio">
           <button class="ic" data-a="up" aria-label="Sposta su" ${xi === 0 ? 'disabled' : ''}>↑</button><button class="ic" data-a="down" aria-label="Sposta giù" ${xi === day.esercizi.length - 1 ? 'disabled' : ''}>↓</button><button class="ic" data-a="del" aria-label="Togli">✕</button></div>
@@ -208,6 +210,7 @@ export function renderSchedaEdit(id, ctx) {
           <label>Recupero<select data-f="recupero"><option value="">—</option>${[...new Set([...RECUPERI, x.recupero].filter(Boolean))].map((r) => `<option ${r === x.recupero ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
           <label>Carico<select data-f="tipoCarico">${TIPI_CARICO.map(([v, l]) => `<option value="${v}" ${v === x.tipoCarico ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
         </div></div></details>`;
+      if (inPrev && !x.ss) h += `</div>`;
       if (xi < day.esercizi.length - 1) h += `<button class="ss-link${x.ss ? ' on' : ''}" data-ss="${gi}:${xi}" aria-pressed="${x.ss}">${x.ss ? '⛓ In superserie · tocca per separare' : '+ Superserie con il successivo'}</button>`;
     });
     h += `<button class="add-ex" data-add="${gi}">+ Aggiungi esercizio</button></div>`;

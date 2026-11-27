@@ -395,7 +395,10 @@ details.ed-ex[open] summary .n { color: var(--accent); }
 details.ed-ex[open] summary .hd { transform: rotate(90deg); }
 .ed-body { padding: 0 0 14px 36px; display: flex; flex-direction: column; gap: 8px; }
 .ed-body .ed-nome { min-width: 0; }
-details.ed-ex.ss { box-shadow: inset 3px 0 0 var(--accent-2); }
+/* superserie: un riquadro unico attorno a tutti gli esercizi collegati */
+.ss-grp { border: 1.5px solid var(--accent-2); border-radius: var(--radius); padding: 0 12px 0 10px; margin: 8px 0; background: color-mix(in srgb, var(--accent-2) 7%, transparent); }
+.ss-grp details.ed-ex { border-bottom: 0; }
+.ss-grp .ss-link.on { padding-top: 0; padding-bottom: 0; }
 .ed-day .ss-link { background: none; border: 0; padding: 6px 0 6px 36px; font-size: 12.5px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; border-radius: 0; }
 .ed-day .ss-link.on { color: var(--accent-2); text-decoration: none; font-weight: 600; }
 .add-ex { width: 100%; margin-top: 12px; height: 46px; border: 1.5px dashed var(--muted-3); border-radius: var(--radius); background: none; color: var(--text); font: 600 15px var(--sans); cursor: pointer; }
