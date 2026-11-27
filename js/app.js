@@ -4,6 +4,7 @@ import { bodyMapSVG } from './bodymap.js';
 import { makeStats } from './stats.js';
 import { renderSchedeList, renderSchedaEdit, catalog, guessLoad, ATTREZZI_LABEL } from './editor.js';
 import { lineChart, barChart, pairBars, initTips } from './charts.js';
+import { openCalc, ICON_CALC } from './calc.js';
 
 // ---------------------------------------------------------------- stato
 const KEY = 'palestra.v1';
@@ -180,7 +181,8 @@ function atTop(ex, h) {
 // ---------------------------------------------------------------- shell
 const view = { anim: null };
 function setTop(title, subtitle = '', back = null) {
-  document.body.classList.remove('masthead', 'day-page', 'ed-page');
+  document.body.classList.remove('masthead', 'day-page', 'ed-page', 'calc-open');
+  document.getElementById('calcOv')?.remove();
   document.getElementById('title').textContent = title;
   document.getElementById('subtitle').textContent = subtitle;
   const b = document.getElementById('back');
@@ -557,7 +559,7 @@ function renderSession() {
 
   const linksP = ssLinks(sch.id, sess.giorno, exs);
   let h = `<div class="progress">${exs.map((x, i) => `<i class="${i === sess.idx ? 'cur' : sess.esercizi[x.id]?.saltato ? 'skip' : isExDone(sess, x) ? 'done' : ''}${linksP.has(x.id) ? ' ss' : ''}"></i>`).join('')}</div>`;
-  h += `<div class="ex-head"><h2>${esc(e.nome)}</h2><div class="target">${e.libero ? `<b>${rec.serie.length} serie</b>` : `<b>${e.serie} × ${range}</b>`} · recupero ${fmtRest(rest)}${grp ? ' dopo il giro' : ''}</div></div>`;
+  h += `<div class="ex-head"><h2>${esc(e.nome)}</h2><div class="target-row"><div class="target">${e.libero ? `<b>${rec.serie.length} serie</b>` : `<b>${e.serie} × ${range}</b>`} · recupero ${fmtRest(rest)}${grp ? ' dopo il giro' : ''}</div><button class="calc-btn" id="calcBtn" type="button">${ICON_CALC}Calcola</button></div></div>`;
   if (grp) {
     const others = grp.filter((k) => k !== sess.idx).map((k) => exs[k].nome).join(' e ');
     h += `<div class="ss-banner"><b>⛓ Superserie</b> con ${esc(others)}: una serie per esercizio, poi recupero. <button id="ssOff">Separa</button></div>`;
@@ -650,6 +652,16 @@ function renderSession() {
   const ssOn = document.getElementById('ssOn');
   if (ssOn) ssOn.onclick = () => { setSsLink(sch.id, sess.giorno, exs, e.id, true); route(); };
   document.getElementById('list').onclick = () => showList(sess, exs);
+  document.getElementById('calcBtn').onclick = () => {
+    const k = isBw ? 'zavorra' : 'carico';
+    const doneL = rec.serie.filter((x) => x.fatto && x[k] != null).map((x) => x[k]);
+    const oggi = curSet >= 0 && rec.serie[curSet][k] != null ? rec.serie[curSet][k] : doneL.length ? doneL[doneL.length - 1] : null;
+    const massimale = !isBw && lastH && lastH.carico && lastH.reps ? Math.round(lastH.carico * (1 + lastH.reps / 30) * 10) / 10 : null;
+    openCalc({ S, save, toast, e, isBw, curSet, oggi, massimale, onUse: (kg) => {
+      const x = rec.serie[curSet]; if (!x) return;
+      x[k] = kg; save(); route(); toast(`${fmt(kg)} kg nella serie ${curSet + 1}`);
+    } });
+  };
   document.getElementById('finish').onclick = () => { location.hash = '#/riepilogo'; };
   if (sess.libero) bindFreeSession(sess, e, rec);
   keepAwake();
