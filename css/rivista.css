@@ -425,3 +425,8 @@ details.ed-ex.ss { box-shadow: inset 3px 0 0 var(--accent-2); }
 .chip .dot { width: 8px; height: 8px; }
 .tips { margin: 0; }
 .pl { font-family: var(--sans); font-weight: 600; padding: 0 .06em; }
+
+/* niente zoom col doppio tocco: due tocchi rapidi sul + aumentano due volte il carico */
+html, body, button, a, input, select, label, summary { touch-action: manipulation; }
+/* sotto i 16px iOS ingrandisce la pagina quando si tocca un campo */
+input, select, textarea { font-size: max(16px, 1em); }
