@@ -570,3 +570,4 @@ body.calc-open { overflow: hidden; }
 .wk-done .btn { min-height: 52px; font-size: 17px; }
 .day.miss .letter { color: var(--accent); }
 .day .comp { display: inline-block; border: 1.5px solid var(--accent); color: var(--accent); border-radius: var(--radius); padding: 6px 12px; font-weight: 600; font-size: 14px; }
+.wk-undo { display: block; margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }

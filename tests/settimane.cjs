@@ -56,9 +56,20 @@ const ok = (m) => console.log('  ✓ ' + m), ko = (m) => { bad++; console.log(' 
     (await st()).settings.weekAdv.week === cur + 1 ? ok('scelta salvata') : ko('weekAdv non salvato');
     await p.reload(); await p.waitForTimeout(200);
     (await txt('.wk-nav b')) === `Settimana ${cur + 1}` ? ok('resta dopo il ricaricamento') : ko('non resta');
-    // › prima della fine (chiede conferma, accettata)
+    // ‹ dopo essere passati: si può rimanere sulla settimana di prima
+    await p.click('#wPrev'); await p.waitForTimeout(150);
+    (await p.$('#wUndo')) ? ok('dopo il passaggio, ‹ offre «Rimani sulla ' + cur + '»') : ko('manca il ritorno');
+    await p.click('#wUndo'); await p.waitForTimeout(150);
+    (await txt('.wk-nav b')) === `Settimana ${cur}` && (await p.$('#wAdv')) && !(await st()).settings.weekAdv ? ok('rimasto sulla ' + cur + ', pulsante «Passa» di nuovo visibile') : ko('rimani: ' + await txt('.wk-nav b'));
+    // › guarda soltanto: tornando indietro il pulsante c'è ancora
     await p.click('#wNext'); await p.waitForTimeout(150);
-    (await txt('.wk-nav b')) === `Settimana ${cur + 2}` ? ok('› passa avanti anche prima della fine') : ko('› ' + await txt('.wk-nav b'));
+    (await txt('.wk-nav b')) === `Settimana ${cur + 1}` && /futura/.test(await txt('.past-band')) && !(await st()).settings.weekAdv ? ok('› mostra la settimana ' + (cur + 1) + ' senza passarci') : ko('› futura');
+    await p.click('#wPrev'); await p.waitForTimeout(150);
+    (await p.$('.wk-done #wAdv')) ? ok('tornando indietro «Passa alla settimana» c\'è ancora') : ko('pulsante sparito');
+    await p.click('#wAdv'); await p.waitForTimeout(150);
+    // › prima della fine: guarda la futura e passa col pulsante (chiede conferma, accettata)
+    await p.click('#wNext'); await p.waitForTimeout(150); await p.click('#wAdv'); await p.waitForTimeout(150);
+    (await txt('.wk-nav b')) === `Settimana ${cur + 2}` ? ok('dalla settimana futura si passa con il pulsante') : ko('passa futura ' + await txt('.wk-nav b'));
     await p.click('.day >> nth=0'); await p.waitForTimeout(200);
     (await p.$eval('#week', (e) => e.value)) === String(cur + 2) ? ok('la giornata parte nella settimana nuova') : ko('settimana giornata ' + await p.$eval('#week', (e) => e.value));
     console.log('  errori JS: ' + (errs.length ? errs.join(' | ') : 'nessuno')); bad += errs.length;
