@@ -1279,8 +1279,9 @@ function settingsHTML() {
   h += secH('Impostazioni') + `<div class="settings set-rows">
     <label>Data di nascita<input type="date" id="nascita" value="${S.settings.nascita ?? ''}" max="${todayISO()}"></label>
     <label>Altezza (cm)<input type="number" step="1" inputmode="numeric" id="altezza" value="${S.settings.altezza ?? ''}" placeholder="es. 175"></label>
-    <label>Tema<select id="theme"><option value="auto" ${theme === 'auto' ? 'selected' : ''}>Automatico</option><option value="light" ${theme === 'light' ? 'selected' : ''}>Chiaro</option><option value="dark" ${theme === 'dark' ? 'selected' : ''}>Scuro</option></select></label></div>`;
+    <label>Tema<select id="theme"><option value="auto" ${theme === 'auto' ? 'selected' : ''}>Automatico</option><option value="light" ${theme === 'light' ? 'selected' : ''}>Chiaro</option><option value="dark" ${theme === 'dark' ? 'selected' : ''}>Scuro</option></select></label></div><div class="muted small" id="appVer" style="margin-top:10px"></div>`;
   h += backupHTML();
+  if (window.caches) caches.keys().then((ks) => { const v = ks.find((k) => k.startsWith('palestra-v')); const el = document.getElementById('appVer'); if (el && v) el.textContent = 'Versione app: ' + v.replace('palestra-', ''); }).catch(() => {});
   return h;
 }
 function bindHistoryList() {
@@ -1543,6 +1544,14 @@ async function boot() {
   window.addEventListener('hashchange', () => { window.scrollTo(0, 0); route(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.current) keepAwake(); });
   route();
-  if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    // controlla aggiornamenti a ogni apertura e ricarica da solo quando arriva la versione nuova (non durante un allenamento)
+    const hadCtrl = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadCtrl && !reloaded && !S.current) { reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(() => {});
+  }
 }
 boot();
