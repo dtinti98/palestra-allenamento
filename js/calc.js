@@ -42,20 +42,27 @@ export function roundLoad(kg, { bar, dischi, step = 2.5 }) {
 }
 
 // disegno di metà bilanciere con i dischi in ordine di montaggio (più pesanti verso l'interno)
+// colore del disco: arancione per i più pesanti, verde per i più leggeri; i pesi fuori lista prendono il colore più vicino
+const PCOL = [[25, '#d4531c'], [20, '#e8801c'], [15, '#e6a81e'], [10, '#bfb21f'], [5, '#7fa83a'], [2.5, '#3f9a4c'], [1.25, '#1f7a45']];
+export const plateColor = (p) => PCOL.reduce((a, c) => (Math.abs(Math.log(c[0] / p)) < Math.abs(Math.log(a[0] / p)) ? c : a))[1];
+const plateInk = (p) => (p >= 10 && p < 20 ? '#1f1a15' : '#fff');
 function barSVG(plates, bar) {
-  const W = 320, H = 130, cy = 58, x0 = 150;
-  const hOf = (p) => Math.max(26, Math.min(100, 30 + p * 2.8));
-  const wOf = (p) => (p >= 15 ? 15 : p >= 5 ? 11 : 8);
+  const W = 320, H = 136, cy = 56, x0 = 140;
+  const hOf = (p) => Math.max(28, Math.min(96, 30 + p * 2.7));
+  const wOf = (p) => (p >= 15 ? 18 : p >= 5 ? 14 : 11);
   let g = `<rect x="0" y="${cy - 4}" width="${x0 - 12}" height="8" class="bar"/><rect x="${x0 - 12}" y="${cy - 11}" width="7" height="22" class="bar-c"/><rect x="${x0 - 5}" y="${cy - 5}" width="${W - x0 + 5}" height="10" class="bar"/>`;
   g += `<text x="12" y="${cy - 22}" class="bar-l">bilanciere ${esc(fmt(bar))} kg</text>`;
-  let x = x0 + 2;
-  plates.forEach((p, i) => {
+  let x = x0 + 2, lastL = -99;
+  const yL = cy + 48 + 22;
+  for (const p of plates) {
     const h = hOf(p), w = wOf(p);
-    if (x + w > W - 6) return;
-    g += `<rect x="${x}" y="${cy - h / 2}" width="${w}" height="${h}" rx="2" class="${p >= 15 ? 'pl-big' : 'pl-small'}"/>`;
-    g += `<text x="${x + w / 2}" y="${cy + h / 2 + (i % 2 ? 26 : 14)}" text-anchor="middle" class="pl-l">${esc(fmt(p))}</text>`;
-    x += w + 2;
-  });
+    if (x + w > W - 6) break;
+    g += `<rect x="${x}" y="${cy - h / 2}" width="${w}" height="${h}" rx="2" fill="${plateColor(p)}"/>`;
+    // etichette su una riga, distanziate: se serve si spostano a destra con una lineetta che le collega al disco
+    const cx = x + w / 2, lx = Math.max(cx, lastL + 26);
+    g += `<path d="M${cx} ${cy + h / 2 + 3}V${yL - 16}L${lx} ${yL - 13}" class="pl-ln"/><text x="${lx}" y="${yL}" text-anchor="middle" class="pl-l">${esc(fmt(p))}</text>`;
+    lastL = lx; x += w + 3;
+  }
   if (plates.length) g += `<rect x="${x}" y="${cy - 9}" width="5" height="18" class="bar-c"/>`;
   return `<svg viewBox="0 0 ${W} ${H}" class="bar-svg" role="img" aria-label="Dischi per lato">${g}</svg>`;
 }
@@ -124,7 +131,7 @@ export function openCalc(ctx) {
         const p = platesFor(Math.max(0, (tot - b.kg) / 2), S.settings.dischi);
         kg = b.kg + 2 * p.side;
         h += `<div class="c-bar">${barSVG(p.plates, b.kg)}</div>`;
-        h += `<div class="c-side"><b class="num">${esc(fmt(p.side))}<small> kg per lato</small></b><span class="c-pl">${p.plates.map((x) => `<i>${esc(fmt(x))}</i>`).join('')}</span></div>`;
+        h += `<div class="c-side"><b class="num">${esc(fmt(p.side))}<small> kg per lato</small></b><span class="c-pl">${p.plates.map((x) => `<i style="background:${plateColor(x)};color:${plateInk(x)}">${esc(fmt(x))}</i>`).join('')}</span></div>`;
         if (tot < b.kg) h += `<p class="c-warn">Il carico è sotto il peso del bilanciere (${esc(fmt(b.kg))} kg).</p>`;
         else if (Math.abs(kg - tot) > 1e-6) h += `<p class="c-warn">${esc(fmt(tot))} kg non si può comporre con questi dischi: il più vicino è ${esc(fmt(kg))} kg.</p>`;
       }

@@ -506,3 +506,5 @@ body.calc-open { overflow: hidden; }
 @media (max-width: 350px) { .c-chips { grid-template-columns: repeat(3, 1fr); } .c-res b { font-size: 42px; } .calc-btn { padding: 6px 9px; } }
 .c-step input { text-align: center; padding: 0; }
 .c-step:has(> input) { grid-template-columns: 44px 1fr 24px 44px; }
+.bar-svg .pl-ln { fill: none; stroke: var(--muted-2); stroke-width: 1; }
+
