@@ -110,7 +110,6 @@ export function openCalc(ctx) {
         <div class="c-step"><button data-pct="-5" aria-label="Meno 5%">−</button><b class="num">${st.pct}<small> %</small></b><button data-pct="+5" aria-label="Più 5%">+</button></div>
         <div class="c-chips">${[50, 60, 70, 80, 85, 90].map((v) => `<button data-pv="${v}" aria-pressed="${v === st.pct}">${v}</button>`).join('')}</div>
         <div id="cOut">${pctRes().html}</div><div id="cUseW">${useBtn(pctRes().kg)}</div>`;
-      if (ctx.massimale != null && !ctx.isBw) h += `<p class="fine">Massimale stimato con Epley sull'ultima volta: carico × (1 + rip./30).</p>`;
     } else {
       const b = selBar();
       h += `<span class="cap">Carico totale</span>
