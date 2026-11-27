@@ -67,6 +67,20 @@ function weekFor(scheda, dateISO) {
   scheda.settimane.forEach((d, i) => { if (d && d <= dateISO) w = i + 1; });
   return w;
 }
+// settimana corrente: quella del calendario, o più avanti se Danilo è passato alla successiva a mano
+function curWeek(sch, today = todayISO()) {
+  const auto = weekFor(sch, today);
+  const a = S.settings.weekAdv;
+  return a && a.scheda === sch.id ? Math.max(auto, Math.min(a.week, sch.settimane.length)) : auto;
+}
+// primo giorno di una settimana della scheda
+const weekStart = (sch, w) => sch.settimane[w - 1] || addDays(sch.settimane.find(Boolean) || sch.inizio, 7 * (w - 1));
+function weekRange(sch, w) {
+  const a = new Date(weekStart(sch, w) + 'T12:00:00'), b = new Date(addDays(weekStart(sch, w), 6) + 'T12:00:00');
+  const m = (d) => d.toLocaleDateString('it-IT', { month: 'short' }).replace('.', '');
+  return a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${m(b)}` : `${a.getDate()} ${m(a)} – ${b.getDate()} ${m(b)}`;
+}
+let homeWeek = null; // settimana passata che si sta guardando in home (null = quella corrente)
 function dayName(scheda, g) {
   const parts = (scheda.nome.split(' - ')[1] || '').split(' / ');
   const i = scheda.giorni.indexOf(g);
@@ -246,7 +260,11 @@ function renderHome() {
   if (!hasScheda()) return renderWelcome();
   const today = todayISO();
   const sch = schedaFor(today);
-  const week = weekFor(sch, today);
+  const curW = curWeek(sch, today);
+  if (homeWeek != null && (homeWeek >= curW || homeWeek < 1)) homeWeek = null;
+  const week = homeWeek ?? curW;
+  const past = week < curW;
+  const maxW = sch.settimane.length;
   setTop('Allenamento', '');
   setTab('home');
   document.body.classList.add('masthead');
@@ -259,7 +277,8 @@ function renderHome() {
   let h = `<header class="mast"><div class="kick">Scheda ${sch.id} · settimana ${Math.min(week, nSett)} di ${nSett}</div>
     <h1>${esc(sch.nome.split(' - ')[0])}</h1><div class="sub">Dal ${dLungo(sch.inizio)} al ${dLungo(sch.fine || sch.settimane[sch.settimane.length - 1])}</div>
     <div class="wk" aria-hidden="true">${Array.from({ length: nSett }, (_, i) => `<i class="${i + 1 < week ? 'd' : i + 1 === week ? 'c' : ''}"></i>`).join('')}</div>
-    <div class="wkl"><span>${dShort(sch.inizio).replace(/^0/, '').replace('/0', '/')}</span><span>Questa settimana: ${done.size} di ${sch.giorni.length} sedute</span><span>${dShort(sch.fine).replace(/^0/, '').replace('/0', '/')}</span></div></header>`;
+    <div class="wk-nav"><button id="wPrev" aria-label="Settimana precedente" ${week <= 1 ? 'disabled' : ''}>‹</button><div><b>Settimana ${week}</b><small>${weekRange(sch, week)} · ${done.size} di ${sch.giorni.length} sedute</small></div><button id="wNext" aria-label="Settimana successiva" ${week >= maxW ? 'disabled' : ''}>›</button></div></header>`;
+  if (past) h += `<div class="past-band"><span>Stai guardando una settimana passata</span><button class="lk" id="wBack">Torna alla ${curW}</button></div>`;
   if (cur) {
     const curSch = sessSch(cur);
     const exs = curSch.esercizi.filter((e) => e.giorno === cur.giorno);
@@ -275,7 +294,7 @@ function renderHome() {
     }
   }
   // prossima seduta in primo piano
-  if (next) {
+  if (past) { /* settimana passata: solo l'elenco, con «Completa» sulle giornate mancanti */ } else if (next) {
     const exs = sch.esercizi.filter((e) => e.giorno === next);
     const serie = exs.reduce((a, e) => a + e.serie, 0);
     const gear = gearFor(sch, next);
@@ -285,24 +304,38 @@ function renderHome() {
       <ol>${exs.slice(0, 3).map((e) => `<li><span>${esc(e.nome)}</span><span>${e.serie} × ${esc(rangeTxt(e))}</span></li>`).join('')}${exs.length > 3 ? `<li class="more">e ${exs.length - 3 === 1 ? 'un altro esercizio' : `altri ${exs.length - 3} esercizi`}</li>` : ''}</ol>
       <button class="btn primary block go" id="goNext">Inizia giornata ${next}</button></section>`;
   } else {
-    h += `<section class="next-box"><div class="kick">Settimana completata</div><h2>Tutte le ${sch.giorni.length} sedute fatte</h2><div class="m">Puoi rifare una giornata o fare un allenamento libero.</div></section>`;
+    const nextMon = weekStart(sch, week + 1);
+    const quando = new Date(nextMon + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric' });
+    h += `<section class="wk-done"><div class="k">Settimana ${week} completata</div><h2>${sch.giorni.length} di ${sch.giorni.length} sedute fatte</h2>${week < maxW
+      ? `<p>La settimana ${week + 1} inizierebbe ${quando}. Puoi passarci subito.</p><button class="btn primary block" id="wAdv">Passa alla settimana ${week + 1} →</button>`
+      : `<p>Era l'ultima settimana della scheda. Puoi rifare una giornata o fare un allenamento libero.</p>`}</section>`;
   }
   // giornate della settimana
-  h += `<div class="home-sec"><span>Questa settimana</span><a href="#/schede">Gestisci le schede</a></div><div class="days">`;
+  h += `<div class="home-sec"><span>${past ? `Settimana ${week}` : 'Questa settimana'}</span><a href="#/schede">Gestisci le schede</a></div><div class="days">`;
   for (const g of sch.giorni) {
     const n = sch.esercizi.filter((e) => e.giorno === g);
     const series = n.reduce((a, e) => a + e.serie, 0);
     const isDone = done.has(g);
     const when = isDone ? doneDate(sch, week, g) : null;
-    const st = isDone ? `✓ ${when ? dWeek(when) : 'fatta'}` : g === next ? 'Prossima' : '';
-    h += `<a class="day ${isDone ? 'done' : g === next ? 'next' : ''}" href="#/giorno/${g}"><span class="letter">${g}</span>
-      <span class="grow"><b class="name">${esc(dayName(sch, g))}</b><small class="meta">${n.length} esercizi · ${series} serie</small></span>
+    const st = isDone ? `✓ ${when ? dWeek(when) : 'fatta'}` : past ? '<span class="comp">Completa</span>' : g === next ? 'Prossima' : '';
+    h += `<a class="day ${isDone ? 'done' : past ? 'miss' : g === next ? 'next' : ''}" href="#/giorno/${g}${past ? `?w=${week}` : ''}"><span class="letter">${g}</span>
+      <span class="grow"><b class="name">${esc(dayName(sch, g))}</b><small class="meta">${past && !isDone ? `Non fatta · ${n.length} esercizi` : `${n.length} esercizi · ${series} serie`}</small></span>
       <span class="st">${st}</span></a>`;
   }
   h += `</div>`;
   h += freeCardHTML();
   if (DATA.generato) h += `<p class="muted foot-note">Carichi del diario aggiornati al ${esc(DATA.generato.slice(0, 10).split('-').reverse().join('/'))}. Gli allenamenti che registri qui restano salvati su questo dispositivo.</p>`;
   $app.innerHTML = h;
+  const goWeek = (w) => { homeWeek = w < curW ? w : null; renderHome(); window.scrollTo(0, 0); };
+  const advance = () => { S.settings.weekAdv = { scheda: sch.id, week: curW + 1 }; homeWeek = null; save(); renderHome(); window.scrollTo(0, 0); toast(`Settimana ${curW + 1}`); };
+  document.getElementById('wPrev').onclick = () => goWeek(week - 1);
+  document.getElementById('wNext').onclick = () => {
+    if (past) return goWeek(week + 1);
+    if (next && !confirm(`Passare alla settimana ${curW + 1}? La settimana ${curW} non è finita: potrai completarla tornando indietro con ‹.`)) return;
+    advance();
+  };
+  const wb = document.getElementById('wBack'); if (wb) wb.onclick = () => goWeek(curW);
+  const wa = document.getElementById('wAdv'); if (wa) wa.onclick = advance;
   const gb = document.getElementById('goNext');
   if (gb) gb.onclick = () => {
     const c = S.current && S.sessions.find((s) => s.id === S.current);
@@ -324,11 +357,12 @@ function gearFor(sch, g) {
 }
 
 // ---------------------------------------------------------------- ANTEPRIMA GIORNATA
-function renderDay(g) {
+function renderDay(g, wParam) {
   if (!hasScheda()) { location.hash = '#/'; return; }
   const today = todayISO();
   const sch = schedaFor(today);
-  const week = weekFor(sch, today);
+  const wq = parseInt(wParam, 10);
+  const week = wq >= 1 && wq <= sch.settimane.length ? wq : curWeek(sch, today);
   const exs = sch.esercizi.filter((e) => e.giorno === g);
   if (!exs.length) { location.hash = '#/'; return; }
   const cur = S.current && S.sessions.find((s) => s.id === S.current);
@@ -336,6 +370,7 @@ function renderDay(g) {
   if (cur && !cur.libero && cur.scheda === sch.id && cur.giorno === g) { location.hash = '#/sessione'; return; }
   const nSerie = exs.reduce((a, e) => a + e.serie, 0);
   setTop(`Giornata ${g}`, `Settimana ${week} · ${exs.length} esercizi · ${nSerie} serie`, '#/');
+  if (week < curWeek(sch, today)) document.getElementById('subtitle').textContent = `Da completare nella settimana ${week} · ${exs.length} esercizi`;
   setTab('home');
   document.body.classList.add('day-page');
   const links = ssLinks(sch.id, g, exs);
@@ -396,6 +431,7 @@ function ssRest(exs, grp) {
 const fmtRest = (s) => (s >= 60 ? `${Math.floor(s / 60)}′${s % 60 ? (s % 60) + '″' : ''}` : `${s}″`);
 
 function startSession(sch, g, week) {
+  homeWeek = null;
   const cur = S.current && S.sessions.find((s) => s.id === S.current);
   if (cur && !cur.libero && cur.scheda === sch.id && cur.giorno === g && cur.settimana === week) { location.hash = '#/sessione'; return; }
   closeOrDiscard(cur);
@@ -1525,7 +1561,7 @@ function route() {
   document.body.classList.remove('in-session');
   stopAnim();
   if (!parts.length) return renderHome();
-  if (parts[0] === 'giorno') return renderDay(parts[1]);
+  if (parts[0] === 'giorno') return renderDay(parts[1], params.get('w'));
   if (parts[0] === 'sessione') return renderSession();
   if (parts[0] === 'libero') return renderFreeStart();
   if (parts[0] === 'riepilogo') return renderSummary();

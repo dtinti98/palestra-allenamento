@@ -553,3 +553,20 @@ body.calc-open { overflow: hidden; }
 .c-side-s { font-size: 14.5px; }
 .c-side-s b { font: 600 16px var(--sans); }
 .db-svg { max-width: 360px; margin: 0 auto; }
+
+/* home: navigazione tra le settimane */
+.wk-nav { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 8px; margin-top: 12px; }
+.wk-nav button { height: 48px; border: 1.5px solid var(--text); border-radius: var(--radius); background: none; color: var(--text); font-size: 22px; line-height: 1; cursor: pointer; }
+.wk-nav button:disabled { opacity: .25; cursor: default; }
+.wk-nav div { text-align: center; }
+.wk-nav b { display: block; font: 650 20px var(--serif); }
+.wk-nav small { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.past-band { margin-top: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface-2); border-left: 3px solid var(--accent); font-size: 14.5px; }
+.past-band .lk { flex: none; font-weight: 600; color: var(--text); }
+.wk-done { margin-top: 16px; background: var(--band); color: var(--band-ink); border: 1px solid var(--band-line); border-radius: var(--radius); padding: 18px 16px; }
+.wk-done .k { font: italic 15px var(--serif); color: var(--band-soft); }
+.wk-done h2 { font: 650 26px/1.15 var(--serif); margin: 2px 0 8px; color: var(--band-ink); }
+.wk-done p { font-size: 14px; color: var(--band-soft); margin: 0 0 14px; }
+.wk-done .btn { min-height: 52px; font-size: 17px; }
+.day.miss .letter { color: var(--accent); }
+.day .comp { display: inline-block; border: 1.5px solid var(--accent); color: var(--accent); border-radius: var(--radius); padding: 6px 12px; font-weight: 600; font-size: 14px; }
