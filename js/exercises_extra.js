@@ -491,6 +491,22 @@ export const LIB_EXTRA = {
     front: (J) => prop.cable(J.handN, [32, 178]) + pulley([32, 178]) + prop.line([J.handN[0] - 2, J.handN[1] - 4], [J.handN[0] + 2, J.handN[1] + 5], 3.5, COL.metal),
     tips: ['Schiena verso la carrucola, corda tra le gambe', 'Anche indietro come nello stacco rumeno', 'Chiudi spingendo il bacino in avanti'],
   },
+  // ---- esercizi a una gamba ----
+  single_leg_press: {
+    title: 'Leg press a una gamba', primary: ['quadricipiti', 'glutei'], secondary: ['femorali', 'polpacci'],
+    A: { hip: [96, 150], torso: 238, neck: 226, footN: [124, 120], kneeN: 'up', ftN: 135, thF: 100, shF: 10, ftF: 90, uaN: 8, faN: 70, uaF: 6, faF: 68 },
+    B: { hip: [96, 150], torso: 238, neck: 226, footN: [146, 100], kneeN: 'up', ftN: 135, thF: 100, shF: 10, ftF: 90, uaN: 8, faN: 70, uaF: 6, faF: 68 },
+    back: (J) => prop.line([60, 186], [210, 36], 4) + prop.pad(add(J.hip, [-12, 6], 1), 238, 70, -8) + prop.rect(74, 152, 46, 7) + prop.line([96, 159], [96, 190], 4),
+    front: (J) => { const d = dirv(45); return prop.line(add(J.ankleN, d, -20), add(J.ankleN, d, 18), 7, COL.metal); },
+    tips: ['Piede al centro della pedana, bacino ben appoggiato', 'Ginocchio in linea con il piede', 'Carico più basso del bilaterale, stesse ripetizioni per gamba'],
+  },
+  single_leg_rdl: {
+    title: 'Stacco rumeno a una gamba', primary: ['femorali', 'glutei'], secondary: ['lombari', 'abduttori'],
+    A: { hip: [112, 114], torso: 178, neck: 178, footN: [118, 187], kneeN: 'front', ftN: 90, thF: -4, shF: -2, ftF: 90, uaN: 2, faN: 0, uaF: 0, faF: 0 },
+    B: { hip: [104, 120], torso: 98, neck: 104, footN: [118, 187], kneeN: 'front', ftN: 90, thF: -84, shF: -84, ftF: 4, uaN: 0, faN: 0, uaF: -2, faF: -2 },
+    front: (J) => prop.dbSide(J.handF, perp(J, 'F'), false, 18),
+    tips: ['Manubrio nella mano opposta alla gamba d\'appoggio', 'Gamba libera e busto scendono insieme, in linea', 'Bacino dritto, ginocchio d\'appoggio appena flesso'],
+  },
 };
 
 // nome nel catalogo (Free Exercise DB) → id movimento
@@ -526,4 +542,6 @@ export const PROGRAM_NAMES = {
   'Estensioni tricipiti sopra testa al cavo': 'cable_overhead_triceps', 'Hip thrust bilanciere': 'bb_hip_thrust', 'Abduzione macchina': 'abductor_machine',
   'Alzate laterali manubri': 'lateral_raise', 'Lat machine unilaterale al cavo': 'single_arm_pulldown', 'Chest press': 'chest_press', 'Curl manubri': 'db_curl',
   'Glute drive / hip thrust macchina': 'hip_thrust_machine', 'Kickback al cavo': 'cable_kickback', 'Crunch cavo': 'cable_crunch',
+  'Leg press singolo': 'single_leg_press', 'Leg press singola': 'single_leg_press', 'RDL singolo': 'single_leg_rdl', 'Stacco rumeno singolo': 'single_leg_rdl',
+  'Lat machine singola': 'single_arm_pulldown', 'Lat machine singolo': 'single_arm_pulldown',
 };

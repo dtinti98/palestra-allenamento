@@ -24,7 +24,7 @@ const ok = (m) => console.log('  ✓', m);
     // app vuota: benvenuto, esercizi e pesate funzionano senza scheda
     (await p.$('#imp')) && !(await p.$('a.day')) ? ok('app vuota: schermata di benvenuto') : bad('app vuota: niente benvenuto');
     await overflow('benvenuto');
-    await go('#/esercizi'); (await p.$$('.tile')).length === 102 ? ok('app vuota: 102 esercizi in libreria') : bad('app vuota: libreria ' + (await p.$$('.tile')).length);
+    await go('#/esercizi'); (await p.$$('.tile')).length === 104 ? ok('app vuota: 104 esercizi in libreria') : bad('app vuota: libreria ' + (await p.$$('.tile')).length);
     await go('#/giorno/A'); p.url().endsWith('#/') ? ok('app vuota: giornata → home') : bad('app vuota: giornata ' + p.url());
     await go('#/storico/forza'); (await p.$$('.segs a')).length === 3 ? ok('app vuota: storico solo peso, allenamenti e impostazioni') : bad('app vuota: storico ' + (await p.$$('.segs a')).length);
     await go('#/storico/peso'); await p.fill('#wkg', '64'); await p.click('#wsave'); await p.waitForTimeout(150);
