@@ -584,3 +584,9 @@ body.calc-open { overflow: hidden; }
 .m-imp code { word-break: normal; overflow-wrap: anywhere; }
 .m-imp, .m-imp p { min-width: 0; max-width: 100%; }
 .m-ex { max-width: 100%; box-sizing: border-box; }
+/* tendina che mostra sempre il nome intero (il select vero è trasparente sopra) */
+.sel-wrap { position: relative; display: inline-flex; align-items: center; gap: 6px; font: 500 13px var(--sans); color: var(--text); cursor: pointer; white-space: nowrap; }
+.sel-wrap span { text-decoration: underline; text-underline-offset: 3px; }
+.sel-wrap::after { content: ''; border: 4px solid transparent; border-top: 5px solid currentColor; margin-top: 4px; }
+.sel-wrap select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+.sec-h .r:has(.sel-wrap) { flex: none; }

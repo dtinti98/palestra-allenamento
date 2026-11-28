@@ -1231,13 +1231,14 @@ function renderHistory(sub = 'riepilogo') {
     // dall'inizio: prima e ultima misura di ogni voce
     const M = st.misure;
     if (M.length) {
-      const voci = [['peso', 'Peso', 'kg', 1, 1], ['massa_magra', 'Massa magra', 'kg', 2, 1], ['massa_grassa', 'Massa grassa', 'kg', 2, 0], ['grasso_pct', 'Grasso', '%', 1, 0], ['vita', 'Vita', 'cm', 1, 0], ['braccio', 'Bicipite', 'cm', 1, 1]];
+      // ultimo campo: 1 = verde se sale, -1 = verde se scende, 0 = nessun colore
+      const voci = [['peso', 'Peso', 'kg', 1, 0], ['massa_magra', 'Massa magra', 'kg', 2, 1], ['massa_grassa', 'Massa grassa', 'kg', 2, -1], ['grasso_pct', 'Grasso', '%', 1, -1], ['massa_muscolare', 'Massa muscolare', 'kg', 1, 1], ['muscolo_pct', 'Massa muscolare', '%', 1, 1], ['vita', 'Vita', 'cm', 1, -1], ['braccio', 'Bicipite', 'cm', 1, 1]];
       const righe = voci.map(([k, l, u, d, good]) => { const v = M.filter((m) => m[k] != null); return v.length ? { l, u, d, good, a: v[0][k], z: v[v.length - 1][k] } : null; }).filter(Boolean);
       const keys = [...MISURE.map((m) => m[0]), ...MISURE_CALC.map((m) => m[0])].filter((k) => k !== 'peso' && M.some((m) => m[k] != null));
       if (!keys.includes(misuraKey)) misuraKey = keys[0];
       const dLungo = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
-      h += secH(`Dall'inizio, ${dLungo(M[0].data)}`, keys.length ? `<select id="mkey" class="sel-link" aria-label="Andamento di una misura">${keys.map((k) => `<option value="${k}" ${k === misuraKey ? 'selected' : ''}>${misuraLabel(k)}</option>`).join('')}</select>` : '');
-      if (righe.length) h += `<table class="tbl dall num"><tr><th></th><th>${dShort(M[0].data).replace(/^0/, '')}</th><th>${dShort(M[M.length - 1].data).replace(/^0/, '')}</th><th>Var.</th></tr>${righe.map((r) => { const dv = r.z - r.a; return `<tr><td>${r.l}</td><td>${fmt(r.a, r.d)}${r.u === '%' ? '%' : ''}</td><td>${fmt(r.z, r.d)}${r.u === '%' ? '%' : ''}</td><td class="${r.good && dv > 0 ? 'up' : ''}">${sign(dv, r.d)}${r.u === '%' ? '' : ' ' + r.u}</td></tr>`; }).join('')}</table>`;
+      h += secH(`Dall'inizio, ${dLungo(M[0].data)}`, keys.length ? `<label class="sel-wrap"><span>${esc(misuraLabel(misuraKey))}</span><select id="mkey" aria-label="Andamento di una misura">${keys.map((k) => `<option value="${k}" ${k === misuraKey ? 'selected' : ''}>${misuraLabel(k)}</option>`).join('')}</select></label>` : '');
+      if (righe.length) h += `<table class="tbl dall num"><tr><th></th><th>${dShort(M[0].data).replace(/^0/, '')}</th><th>${dShort(M[M.length - 1].data).replace(/^0/, '')}</th><th>Var.</th></tr>${righe.map((r) => { const dv = r.z - r.a; return `<tr><td>${r.l}</td><td>${fmt(r.a, r.d)}${r.u === '%' ? '%' : ''}</td><td>${fmt(r.z, r.d)}${r.u === '%' ? '%' : ''}</td><td class="${(r.good > 0 && dv > 1e-9) || (r.good < 0 && dv < -1e-9) ? 'up' : ''}">${sign(dv, r.d)}${r.u === '%' ? '' : ' ' + r.u}</td></tr>`; }).join('')}</table>`;
       if (misuraKey) {
         const pts = M.filter((m) => m[misuraKey] != null);
         h += `<div class="chart-card mis-chart"><div class="mis-l">Andamento · ${esc(misuraLabel(misuraKey))}</div>${lineChart({ series: [{ name: misuraLabel(misuraKey), color: 'var(--text)', width: 2, r: 3.2, points: pts.map((m) => ({ x: Date.parse(m.data), y: m[misuraKey], tip: `${dShort(m.data)}: ${fmt(m[misuraKey], misuraKey === 'basale' ? 0 : 2)} ${misuraUnit(misuraKey)}${m.fonte === 'app' ? ' (app)' : ''}` })) }],
