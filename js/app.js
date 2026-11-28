@@ -1042,6 +1042,7 @@ const MISURE = [ // chiave, etichetta, unità, passo, colonna del diario
   ['grasso_pct', 'Grasso corporeo (BF)', '%', '0.1', 'D'],
   ['viscerale', 'Grasso viscerale', '%', '0.1', 'E'],
   ['massa_muscolare', 'Massa muscolare', 'kg', '0.1', null],
+  ['muscolo_pct', 'Massa muscolare %', '%', '0.1', null],
   ['vita', 'Vita', 'cm', '0.5', 'H'],
   ['fianchi', 'Glutei', 'cm', '0.5', 'I'],
   ['torace', 'Torace', 'cm', '0.5', 'J'],
@@ -1077,8 +1078,8 @@ function misuraForm() {
     </details></details>`;
 }
 // ---- misurazioni da JSON: {formato?: "palestra-misure", misure: [{data, peso, grasso_pct, ...}]} oppure direttamente la lista
-const M_ALIAS = { bf: 'grasso_pct', grasso: 'grasso_pct', massa_grassa_pct: 'grasso_pct', glutei: 'fianchi', bicipite: 'braccio', muscolo: 'massa_muscolare', muscoli: 'massa_muscolare', metabolismo: 'basale', metabolismo_basale: 'basale', grasso_viscerale: 'viscerale' };
-const M_LIM = { peso: [30, 200], grasso_pct: [0.5, 60], viscerale: [0, 60], massa_muscolare: [10, 120], vita: [40, 200], fianchi: [40, 200], torace: [40, 200], braccio: [15, 80], coscia: [25, 120], basale: [800, 4000] };
+const M_ALIAS = { bf: 'grasso_pct', grasso: 'grasso_pct', massa_grassa_pct: 'grasso_pct', glutei: 'fianchi', bicipite: 'braccio', muscolo: 'massa_muscolare', muscoli: 'massa_muscolare', mm: 'muscolo_pct', mm_pct: 'muscolo_pct', massa_muscolare_pct: 'muscolo_pct', muscolare_pct: 'muscolo_pct', metabolismo: 'basale', metabolismo_basale: 'basale', grasso_viscerale: 'viscerale' };
+const M_LIM = { peso: [30, 200], grasso_pct: [0.5, 60], viscerale: [0, 60], massa_muscolare: [10, 120], muscolo_pct: [10, 80], vita: [40, 200], fianchi: [40, 200], torace: [40, 200], braccio: [15, 80], coscia: [25, 120], basale: [800, 4000] };
 function misuraErr(m) {
   for (const [k, [lo, hi]] of Object.entries(M_LIM)) if (m[k] != null && (m[k] < lo || m[k] > hi)) return `${misuraLabel(k)} fuori scala (${fmt(m[k])})`;
   return null;
@@ -1138,7 +1139,7 @@ function bindMisura() {
     if (Object.keys(m).length === 1) { toast('Inserisci almeno una misura'); return; }
     if (m.peso != null && (m.peso < 30 || m.peso > 200)) { toast('Peso non valido'); return; }
     if (m.grasso_pct != null && (m.grasso_pct <= 0 || m.grasso_pct >= 60)) { toast('BF non valido'); return; }
-    const LIM = { viscerale: [0, 60], massa_muscolare: [10, 120], vita: [40, 200], fianchi: [40, 200], torace: [40, 200], braccio: [15, 80], coscia: [25, 120], basale: [800, 4000] };
+    const LIM = { viscerale: [0, 60], massa_muscolare: [10, 120], muscolo_pct: [10, 80], vita: [40, 200], fianchi: [40, 200], torace: [40, 200], braccio: [15, 80], coscia: [25, 120], basale: [800, 4000] };
     for (const [k, [lo, hi]] of Object.entries(LIM)) if (m[k] != null && (m[k] < lo || m[k] > hi)) { toast(`${misuraLabel(k)} non valido`); return; }
     S.misure = (S.misure || []).filter((x) => x.data !== d); S.misure.push(m);
     if (m.peso != null) { S.pesate = (S.pesate || []).filter((x) => x.data !== d); S.pesate.push({ data: d, peso: m.peso }); }
@@ -1250,6 +1251,8 @@ function renderHistory(sub = 'riepilogo') {
       if (alt && lastPeso) bits.push(`BMI ${fmt(lastPeso / (alt / 100) ** 2, 1)}`);
       if (eta != null) bits.push(`${eta} anni`);
       if (lm) bits.push(`massa muscolare ${fmt(lm.massa_muscolare, 1)} kg (${dShort(lm.data)})`);
+      const lp = st.misure.filter((m) => m.muscolo_pct != null).pop();
+      if (lp && (!lm || lp.data > lm.data)) bits.push(`massa muscolare ${fmt(lp.muscolo_pct, 1)}% (${dShort(lp.data)})`);
       let t = bits.length ? bits.join(' · ') + '. ' : '';
       if (!alt || !S.settings.nascita) t += `Per BMI ed età inserisci ${!alt && !S.settings.nascita ? 'altezza e data di nascita' : !alt ? 'l\'altezza' : 'la data di nascita'} nelle impostazioni (⚙). `;
       if (M.length) t += 'La bioimpedenza varia con idratazione e orario: leggila come tendenza.';
@@ -1257,7 +1260,7 @@ function renderHistory(sub = 'riepilogo') {
     }
     h += misuraForm();
     if (M.length) {
-      const cols = [['peso', 'Peso'], ['grasso_pct', 'BF %'], ['massa_magra', 'Magra'], ['massa_grassa', 'Grassa'], ['massa_muscolare', 'Muscol.'], ['viscerale', 'Visc. %'], ['vita', 'Vita'], ['fianchi', 'Glutei'], ['torace', 'Torace'], ['braccio', 'Bicip.'], ['coscia', 'Coscia'], ['basale', 'Basale']]
+      const cols = [['peso', 'Peso'], ['grasso_pct', 'BF %'], ['massa_magra', 'Magra'], ['massa_grassa', 'Grassa'], ['massa_muscolare', 'Muscol.'], ['muscolo_pct', 'Musc. %'], ['viscerale', 'Visc. %'], ['vita', 'Vita'], ['fianchi', 'Glutei'], ['torace', 'Torace'], ['braccio', 'Bicip.'], ['coscia', 'Coscia'], ['basale', 'Basale']]
         .filter(([k]) => M.some((m) => m[k] != null));
       h += secH('Tutte le misurazioni') + `<div class="table-wrap"><table class="tbl num"><tr><th>Data</th>${cols.map(([, l]) => `<th>${l}</th>`).join('')}<th></th></tr>
         ${M.slice().reverse().map((m) => `<tr><td>${dShort(m.data)}${m.fonte === 'app' ? '' : '<br><small class="muted">diario</small>'}</td>${cols.map(([k]) => `<td>${m[k] == null ? '–' : fmt(m[k], k === 'basale' ? 0 : k === 'massa_magra' || k === 'massa_grassa' ? 2 : 1)}</td>`).join('')}
