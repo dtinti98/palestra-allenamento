@@ -1064,7 +1064,64 @@ function misuraForm() {
     <label class="mrow"><span>Data</span><input type="date" id="mdate" value="${today}" max="${today}"></label>
     ${MISURE.map(([k, l, u, st]) => `<label class="mrow"><span>${l}</span><span class="minp"><input type="text" inputmode="decimal" autocomplete="off" data-m="${k}" aria-label="${l} in ${u}"><small>${u}</small></span></label>`).join('')}
     <div class="muted" id="mcalc" style="font-size:13px">Con peso e BF calcolo massa magra e massa grassa, come nel diario.</div>
-    <button class="btn primary block" id="msave">Salva misurazione</button></details>`;
+    <button class="btn primary block" id="msave">Salva misurazione</button>
+    <details class="m-imp" id="mimp"><summary>Importa misurazioni vecchie (JSON)</summary>
+      <p class="muted small">Incolla il testo JSON oppure scegli un file. Puoi mettere solo le misure che hai, la data può essere anche 15/10/2025. Se una data c'è già, i valori nuovi si aggiungono a quelli salvati.</p>
+      <pre class="m-ex">{"misure": [
+  {"data": "2025-10-01", "peso": 78.2,
+   "grasso_pct": 15.1, "vita": 82}
+]}</pre>
+      <p class="muted small">Chiavi: ${MISURE.map(([k, l, u]) => `<code>${k}</code> ${esc(l.toLowerCase())} (${u})`).join(', ')}.</p>
+      <textarea id="mjson" rows="5" spellcheck="false" placeholder='{"misure": [ ... ]}' aria-label="Testo JSON delle misurazioni"></textarea>
+      <div class="m-imp-a"><label class="btn">Scegli file<input type="file" id="mfile" accept="application/json,.json,text/plain" hidden></label><button class="btn primary" id="mimpgo">Importa</button></div>
+    </details></details>`;
+}
+// ---- misurazioni da JSON: {formato?: "palestra-misure", misure: [{data, peso, grasso_pct, ...}]} oppure direttamente la lista
+const M_ALIAS = { bf: 'grasso_pct', grasso: 'grasso_pct', massa_grassa_pct: 'grasso_pct', glutei: 'fianchi', bicipite: 'braccio', muscolo: 'massa_muscolare', muscoli: 'massa_muscolare', metabolismo: 'basale', metabolismo_basale: 'basale', grasso_viscerale: 'viscerale' };
+const M_LIM = { peso: [30, 200], grasso_pct: [0.5, 60], viscerale: [0, 60], massa_muscolare: [10, 120], vita: [40, 200], fianchi: [40, 200], torace: [40, 200], braccio: [15, 80], coscia: [25, 120], basale: [800, 4000] };
+function misuraErr(m) {
+  for (const [k, [lo, hi]] of Object.entries(M_LIM)) if (m[k] != null && (m[k] < lo || m[k] > hi)) return `${misuraLabel(k)} fuori scala (${fmt(m[k])})`;
+  return null;
+}
+function parseMisureJSON(text) {
+  let j;
+  try { j = JSON.parse(text); } catch (e) { throw new Error('Il testo non è JSON valido'); }
+  const list = Array.isArray(j) ? j : j && Array.isArray(j.misure) ? j.misure : null;
+  if (!list) throw new Error('Manca la lista «misure»');
+  const ok = [], errs = [], keys = new Set(MISURE.map(([k]) => k));
+  list.forEach((r, i) => {
+    const n = i + 1;
+    if (!r || typeof r !== 'object') { errs.push(`riga ${n}: non è un oggetto`); return; }
+    let d = String(r.data ?? r.date ?? '').trim();
+    const it = d.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+    if (it) d = `${it[3]}-${it[2].padStart(2, '0')}-${it[1].padStart(2, '0')}`;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d)) || d > todayISO()) { errs.push(`riga ${n}: data non valida (${r.data ?? '—'})`); return; }
+    const m = { data: d };
+    for (const [k0, v] of Object.entries(r)) {
+      const k = M_ALIAS[k0.toLowerCase()] || k0.toLowerCase();
+      if (!keys.has(k) || v == null || v === '') continue;
+      const x = parseNum(v); if (x == null) { errs.push(`riga ${n}: ${k0} non è un numero`); continue; }
+      m[k] = x;
+    }
+    // BF scritto come frazione (0,15) → 15%
+    if (m.grasso_pct != null && m.grasso_pct > 0 && m.grasso_pct < 1) m.grasso_pct = Math.round(m.grasso_pct * 1000) / 10;
+    if (Object.keys(m).length === 1) { errs.push(`riga ${n} (${d}): nessuna misura`); return; }
+    const e = misuraErr(m); if (e) { errs.push(`riga ${n} (${d}): ${e}`); return; }
+    ok.push(m);
+  });
+  return { ok, errs };
+}
+function importMisure(list) {
+  const byDate = new Map((S.misure || []).map((m) => [m.data, m]));
+  let nuove = 0, agg = 0;
+  for (const m of list) {
+    const old = byDate.get(m.data);
+    if (old) { Object.assign(old, m); agg++; } else { const c = { ...m }; byDate.set(m.data, c); nuove++; }
+    if (m.peso != null) { S.pesate = (S.pesate || []).filter((x) => x.data !== m.data); S.pesate.push({ data: m.data, peso: m.peso }); }
+  }
+  S.misure = [...byDate.values()].sort((a, b) => (a.data < b.data ? -1 : 1));
+  save();
+  return { nuove, agg };
 }
 function bindMisura() {
   const el = document.getElementById('misura'); if (!el) return;
@@ -1086,6 +1143,23 @@ function bindMisura() {
     S.misure = (S.misure || []).filter((x) => x.data !== d); S.misure.push(m);
     if (m.peso != null) { S.pesate = (S.pesate || []).filter((x) => x.data !== d); S.pesate.push({ data: d, peso: m.peso }); }
     save(); toast(`Misurazione del ${dShort(d)} salvata`); route();
+  };
+  const ta = document.getElementById('mjson');
+  document.getElementById('mfile').onchange = async (ev) => { const f = ev.target.files[0]; if (f) ta.value = await f.text(); ev.target.value = ''; };
+  document.getElementById('mimpgo').onclick = () => {
+    if (!ta.value.trim()) { toast('Incolla il JSON o scegli un file'); return; }
+    let r;
+    try { r = parseMisureJSON(ta.value); } catch (e) { toast(e.message); return; }
+    if (!r.ok.length) { alert('Nessuna misurazione importabile.\n\n' + r.errs.slice(0, 8).join('\n')); return; }
+    const ds = r.ok.map((m) => m.data).sort();
+    const esist = new Set((S.misure || []).map((m) => m.data));
+    const sost = r.ok.filter((m) => esist.has(m.data)).length;
+    const msg = `Importare ${r.ok.length} ${r.ok.length === 1 ? 'misurazione' : 'misurazioni'} dal ${ds[0].split("-").reverse().join("/")} al ${ds[ds.length - 1].split("-").reverse().join("/")}?`
+      + (sost ? `\n${sost} ${sost === 1 ? 'data esiste già e verrà aggiornata' : 'date esistono già e verranno aggiornate'}.` : '')
+      + (r.errs.length ? `\n\nScartate ${r.errs.length}:\n${r.errs.slice(0, 6).join('\n')}${r.errs.length > 6 ? '\n…' : ''}` : '');
+    if (!confirm(msg)) return;
+    const res = importMisure(r.ok);
+    toast(`Importate: ${res.nuove} nuove${res.agg ? `, ${res.agg} aggiornate` : ''}`); route();
   };
 }
 const sign = (n, d = 1) => (n == null ? '–' : `${n > 0 ? '+' : ''}${fmt(n, d)}`);

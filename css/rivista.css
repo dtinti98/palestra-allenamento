@@ -571,3 +571,16 @@ body.calc-open { overflow: hidden; }
 .day.miss .letter { color: var(--accent); }
 .day .comp { display: inline-block; border: 1.5px solid var(--accent); color: var(--accent); border-radius: var(--radius); padding: 6px 12px; font-weight: 600; font-size: 14px; }
 .wk-undo { display: block; margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
+/* misurazioni da JSON */
+.m-imp { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.m-imp summary { cursor: pointer; font-size: 14px; color: var(--text); text-decoration: underline; text-underline-offset: 3px; list-style: none; padding: 6px 0; }
+.m-imp summary::-webkit-details-marker { display: none; }
+.m-imp p { line-height: 1.5; }
+.m-imp code { font-size: 12px; background: var(--surface-2); padding: 1px 4px; border-radius: 3px; word-break: break-all; }
+.m-imp textarea { width: 100%; font: 13px ui-monospace, Menlo, monospace; border: 1px solid var(--muted-3); border-radius: var(--radius); background: var(--surface); color: var(--text); padding: 8px; margin-top: 6px; }
+.m-imp-a { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.m-imp-a .btn { justify-content: center; cursor: pointer; }
+.m-ex { font: 12.5px/1.45 ui-monospace, Menlo, monospace; background: var(--surface-2); padding: 8px 10px; border-radius: var(--radius); margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.m-imp code { word-break: normal; overflow-wrap: anywhere; }
+.m-imp, .m-imp p { min-width: 0; max-width: 100%; }
+.m-ex { max-width: 100%; box-sizing: border-box; }
